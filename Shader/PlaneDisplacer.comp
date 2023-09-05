@@ -1,0 +1,26 @@
+#version 460 core
+#define PLANE_VERTEX_ACCESS
+#include "PlaneGeometry.glsl"
+
+layout(local_size_x_id = 0, local_size_y_id = 1) in;
+
+//push descriptor
+layout(set = 1, binding = 0) uniform sampler2D DisplacementMap;
+
+layout(std430, push_constant) readonly restrict uniform Argument {
+	PlaneVertex Vertex;
+	float Altitude;
+} Attribute;
+
+void main() {
+	const uvec2 invocation = gl_GlobalInvocationID.xy;
+	if (invocation.x >= VertexDimension.x || invocation.y >= VertexDimension.y) {
+		return;
+	}
+	restrict PlaneVertex vertex = Attribute.Vertex + calcVertexIndex(invocation);
+
+	//convert to UV floating-point
+	const vec2 uv = vec2(dvec2(vertex.UV) / double(~0us));
+	const float height = textureLod(DisplacementMap, uv, 0.0f).r;
+	vertex.Position.y = Attribute.Altitude * height;
+}

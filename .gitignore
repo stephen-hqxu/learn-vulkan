@@ -1,0 +1,3 @@
+# IDE cache and compiled binary
+.vs/
+build/

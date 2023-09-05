@@ -1,0 +1,74 @@
+#version 460 core
+#define PLANE_VERTEX_ACCESS writeonly
+#define PLANE_INDEX_ACCESS writeonly
+#define PLANE_COMMAND_ACCESS writeonly
+#include "PlaneGeometry.glsl"
+
+layout(local_size_x_id = 0, local_size_y_id = 1) in;
+
+layout(std430, push_constant) readonly restrict uniform Argument {
+	PlaneVertex Vertex;
+	PlaneIndex Index;
+	PlaneCommand Command;
+} Attribute;
+
+void generateVertex(const uvec2 id) {
+	if (id.x >= VertexDimension.x || id.y >= VertexDimension.y) {
+		return;
+	}
+	restrict PlaneVertex vertex = Attribute.Vertex + calcVertexIndex(id);
+
+	const dvec2 normalised_position = dvec2(id) / TotalPlane,
+		position_2d = normalised_position * Dimension;
+	vertex.Position = vec3(position_2d.x, 0.0f, position_2d.y);
+	//UV should be converted to 16-bit fixed-point
+	vertex.UV = u16vec2(round(normalised_position * ~0us));
+}
+
+void generateIndex(const uvec2 id) {
+	if (id.x >= Subdivision.x || id.y >= Subdivision.y) {
+		return;
+	}
+	const uint idx = id.x + id.y * Subdivision.x;
+	restrict PlaneIndex index = Attribute.Index + idx;
+
+	/*
+	nw ------ ne
+	|          |
+	|          |
+	|          |
+	sw ------ se
+	*/
+	const uint nw = calcVertexIndex(id),
+		ne = nw + 1u,
+		sw = nw + VertexDimension.x,
+		se = sw + 1u;
+	index.Index = uint32_t[6](nw, ne, se, nw, se, sw);
+}
+
+void generateCommand() {
+	restrict PlaneCommand cmd = Attribute.Command;
+
+	cmd.A = IndexCount;
+	cmd.B = 1u;
+	cmd.C = 0u;
+	cmd.D = 0;
+	cmd.E = 0u;
+}
+
+void main() {
+	const uvec2 invocation = gl_GlobalInvocationID.xy;
+	const uint generation_category = gl_GlobalInvocationID.z;
+	switch(generation_category) {
+	case 0u: generateVertex(invocation);
+		break;
+	case 1u: generateIndex(invocation);
+		break;
+	default:
+		return;
+	}
+
+	if (gl_GlobalInvocationID == uvec3(0u)) {
+		generateCommand();
+	}
+}
