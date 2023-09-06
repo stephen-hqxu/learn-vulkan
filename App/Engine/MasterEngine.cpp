@@ -98,7 +98,7 @@ namespace {
 
 	};
 
-	VKO::Instance createInstance(GLFWwindow* const canvas, ostream& msg) {
+	VKO::Instance createInstance(ostream& msg) {
 		constexpr static uint32_t version = VK_MAKE_API_VERSION(0u, 0u, 16u, 7u);//v0.16.7
 		constexpr static VkApplicationInfo app_info {
 			.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -161,8 +161,8 @@ namespace {
 	template<class TCallbackData>
 	VKO::DebugUtilsMessengerEXT setupDebugCallback(const VulkanContext& ctx, const TCallbackData* const callback_data) {
 		constexpr static auto handleMessage = [](const VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-			const VkDebugUtilsMessageTypeFlagsEXT messageTypes,
-			const VkDebugUtilsMessengerCallbackDataEXT* const pCallbackData, void* const data) -> VkBool32 {
+			VkDebugUtilsMessageTypeFlagsEXT, const VkDebugUtilsMessengerCallbackDataEXT* const pCallbackData,
+			void* const data) -> VkBool32 {
 			const TCallbackData& callback_data = *reinterpret_cast<const TCallbackData*>(const_cast<const void*>(data));
 			
 			if (callback_data.Context->isMessageDisabled(pCallbackData->messageIdNumber)) {
@@ -191,8 +191,9 @@ namespace {
 		return VKO::createDebugUtilsMessengerEXT(ctx.Instance, dbg_msg_info);
 	}
 
-	tuple<VKO::Device, VkQueue, VkQueue> createLogicalDevice(const VulkanContext& ctx) {
-		const auto [render_queue_idx, present_queue_idx] = ctx.QueueIndex;
+	tuple<VKO::Device, VkQueue, VkQueue> createLogicalDevice(const CTX::VulkanContext& ctx) {
+		const uint32_t render_queue_idx = ctx.RenderingQueueFamily,
+			present_queue_idx = ctx.PresentingQueueFamily;
 		/*********************************
 		 * Create logical device
 		 *********************************/
@@ -308,7 +309,7 @@ namespace {
 		return make_tuple(move(device), render_queue, present_queue);
 	}
 
-	inline VKO::Allocator createGlobalVma(const VulkanContext& ctx) {
+	inline VKO::Allocator createGlobalVma(const VkInstance instance, const VkPhysicalDevice gpu, const VkDevice device) {
 		const VmaVulkanFunctions alloc_func {
 			.vkGetInstanceProcAddr = vkGetInstanceProcAddr,
 			.vkGetDeviceProcAddr = vkGetDeviceProcAddr
@@ -316,10 +317,10 @@ namespace {
 		const VmaAllocatorCreateInfo alloc_info {
 			//HACK: we are not doing multithreading in this tutorial, but remember to remove it if we need to do so.
 			.flags = VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT | VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
-			.physicalDevice = ctx.PhysicalDevice,
-			.device = ctx.Device,
+			.physicalDevice = gpu,
+			.device = device,
 			.pVulkanFunctions = &alloc_func,
-			.instance = ctx.Instance,
+			.instance = instance,
 			.vulkanApiVersion = VK_API_VERSION_1_3
 		};
 		return VKO::createAllocator(alloc_info);
@@ -401,22 +402,22 @@ namespace {
 		return make_pair(VKO::createSwapchainKHR(ctx.Device, swapchain_info), chosen_extent);
 	}
 
-	inline VKO::CommandPool createGlobalCommandPool(const VulkanContext& ctx) {
+	inline VKO::CommandPool createGlobalCommandPool(const VkDevice device, const uint32_t qf_idx) {
 		const VkCommandPoolCreateInfo cmd_pool_info {
 			.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
 			.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-			.queueFamilyIndex = ctx.QueueIndex.Render
+			.queueFamilyIndex = qf_idx
 		};
-		return VKO::createCommandPool(ctx.Device, cmd_pool_info);
+		return VKO::createCommandPool(device, cmd_pool_info);
 	}
 
-	inline VKO::CommandPool createTransientCommandPool(const VulkanContext& ctx) {
+	inline VKO::CommandPool createTransientCommandPool(const VkDevice device, const uint32_t qf_idx) {
 		const VkCommandPoolCreateInfo cmd_pool_info {
 			.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
 			.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
-			.queueFamilyIndex = ctx.QueueIndex.Render
+			.queueFamilyIndex = qf_idx
 		};
-		return VKO::createCommandPool(ctx.Device, cmd_pool_info);
+		return VKO::createCommandPool(device, cmd_pool_info);
 	}
 
 	//Return three of such, two semaphores for rendering and presenting queue, and one for host-device barrier.
@@ -440,23 +441,25 @@ MasterEngine::MasterEngine(GLFWwindow* const canvas, const Camera::CameraData& c
 		//HACK: It's actually not a very good practice to pass the entire context structure into each create functions
 		//while not all members are fully initialised, and relying on the fact that those functions only use subset of initialised members.
 		//It is done just because of my laziness to reduce typing many function arguments.
-		this->Context.Instance = createInstance(canvas, msg);
-		volkLoadInstance(this->Context.Instance);
+		VKO::Instance instance = createInstance(msg);
+		volkLoadInstance(instance);
 		//need to create a surface first because we need to find surface format when selecting physical device
-		this->Surface = createSurface(canvas, this->Context.Instance);
+		this->Surface = createSurface(canvas, instance);
 
 		//select an appropriate physical device
-		const CTX::VulkanContext context = CTX::selectPhysicalDevice(this->Context.Instance, this->Surface, ContextRequirement);
-		this->Context.PhysicalDevice = context.PhysicalDevice;
+		const CTX::VulkanContext context = CTX::selectPhysicalDevice(instance, this->Surface, ContextRequirement);
 	
-		auto [logical_device, render_queue, present_queue] = createLogicalDevice(this->Context);
-		this->Context.Device = move(logical_device);
-		volkLoadDevice(this->Context.Device);
+		auto [logical_device, render_queue, present_queue] = createLogicalDevice(context);
+		volkLoadDevice(logical_device);
 
-		this->Context.Allocator = createGlobalVma(this->Context);
+		this->Context.Instance = move(instance);
+		this->Context.PhysicalDevice = context.PhysicalDevice;
+		this->Context.Device = move(logical_device);
+
+		this->Context.Allocator = createGlobalVma(this->Context.Instance, this->Context.PhysicalDevice, this->Context.Device);
 		this->Context.CommandPool = {
-			.General = createGlobalCommandPool(this->Context),
-			.Transient = createTransientCommandPool(this->Context)
+			.General = createGlobalCommandPool(this->Context.Device, context.RenderingQueueFamily),
+			.Transient = createTransientCommandPool(this->Context.Device, context.RenderingQueueFamily)
 		};
 
 		this->Context.Queue = {
@@ -564,22 +567,23 @@ void MasterEngine::attachRenderer(RendererInterface* const renderer) {
 }
 
 void MasterEngine::reshape(GLFWwindow* const canvas) {
-	//handle minimisation
-	int w = 0, h = 0;
-	glfwGetFramebufferSize(canvas, &w, &h);
-	while (w == 0 || h == 0) {
+	{
+		//handle minimisation
+		int w = 0, h = 0;
 		glfwGetFramebufferSize(canvas, &w, &h);
-		glfwWaitEvents();
+		while (w == 0 || h == 0) {
+			glfwGetFramebufferSize(canvas, &w, &h);
+			glfwWaitEvents();
+		}
+		CHECK_VULKAN_ERROR(vkDeviceWaitIdle(this->Context.Device));
+
+		//delete old presentation context first in the correct order
+		this->SwapChain->reset();
+
+		//Then recreate all of them, swap chain extent will be updated when presentation is re-created.
+		this->createPresentation(canvas);
+		this->attachRenderer(this->AttachedRenderer);
 	}
-	CHECK_VULKAN_ERROR(vkDeviceWaitIdle(this->Context.Device));
-
-	//delete old presentation context first in the correct order
-	this->SwapChain->reset();
-
-	//Then recreate all of them, swap chain extent will be updated when presentation is re-created.
-	this->createPresentation(canvas);
-	this->attachRenderer(this->AttachedRenderer);
-
 	//update camera
 	{
 		const auto [w, h] = this->SwapChainExtent;

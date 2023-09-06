@@ -1,5 +1,7 @@
 #include "PlaneGeometry.hpp"
 
+#include <LearnVulkan/GeneratedTemplate/ResourcePath.hpp>
+
 #include "../Common/ErrorHandler.hpp"
 #include "../Common/File.hpp"
 
@@ -109,7 +111,7 @@ namespace {
 	/// Shader information
 	///////////////////////
 	constexpr string_view PlaneGeneratorCS = "/PlaneGenerator.comp", PlaneDisplacerCS = "/PlaneDisplacer.comp";
-	constexpr auto PlaneShaderFilenameRaw = File::toAbsolutePath<EngineSetting::ShaderRoot, PlaneGeneratorCS, PlaneDisplacerCS>();
+	constexpr auto PlaneShaderFilenameRaw = File::toAbsolutePath<ResourcePath::ShaderRoot, PlaneGeneratorCS, PlaneDisplacerCS>();
 	constexpr auto PlaneShaderFilename = File::batchRawStringToView(PlaneShaderFilenameRaw);
 
 	////////////////////////
@@ -119,9 +121,9 @@ namespace {
 		msg << "Compiling plane geometry generation shader" << endl;
 
 		constexpr static auto compute_shader = []() constexpr {
-			array<shaderc_shader_kind, PlaneShaderFilename.size()> compute_shader;
-			std::ranges::fill(compute_shader, shaderc_compute_shader);
-			return compute_shader;
+			array<shaderc_shader_kind, PlaneShaderFilename.size()> cs;
+			std::ranges::fill(cs, shaderc_compute_shader);
+			return cs;
 		}();
 		const ShaderModuleManager::ShaderBatchCompilationInfo plane_info {
 			.Device = device,

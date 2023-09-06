@@ -1,0 +1,24 @@
+#pragma once
+
+#include <string_view>
+
+namespace LearnVulkan {
+
+	/**
+	 * @brief Information to locate specific resources for the application.
+	*/
+	namespace ResourcePath {
+
+		/**
+		 * @brief Where all shader source code reside.
+		*/
+		constexpr inline std::string_view ShaderRoot = "${LV_SHADER_ROOT}";
+
+		/**
+		 * @brief Where assets such as texture reside.
+		*/
+		constexpr inline std::string_view ResourceRoot = "${LV_RESOURCE_ROOT}";
+
+	}
+
+}

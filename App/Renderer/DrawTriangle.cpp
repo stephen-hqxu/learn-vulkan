@@ -1,5 +1,7 @@
 #include "DrawTriangle.hpp"
 
+#include <LearnVulkan/GeneratedTemplate/ResourcePath.hpp>
+
 #include "../Common/ErrorHandler.hpp"
 #include "../Common/File.hpp"
 
@@ -105,7 +107,7 @@ namespace {
 	constexpr string_view TriangleVS = "/DrawTriangle.vert", TriangleFS = "/DrawTriangle.frag";
 	constexpr array TriangleShaderKind = { shaderc_vertex_shader, shaderc_fragment_shader };
 
-	constexpr auto TriangleShaderFilenameRaw = File::toAbsolutePath<EngineSetting::ShaderRoot, TriangleVS, TriangleFS>();
+	constexpr auto TriangleShaderFilenameRaw = File::toAbsolutePath<ResourcePath::ShaderRoot, TriangleVS, TriangleFS>();
 	constexpr auto TriangleShaderFilename = File::batchRawStringToView(TriangleShaderFilenameRaw);
 
 	/***************
@@ -462,8 +464,6 @@ DrawTriangle::DrawResult DrawTriangle::draw(const DrawInfo& draw_info) {
 	const VkCommandBuffer cmd = this->TriangleDrawCmd[frame_index];
 	CHECK_VULKAN_ERROR(vkResetCommandBuffer(cmd, { }));
 	CommandBufferManager::beginOneTimeSubmit(cmd);
-
-	const auto& current_atm = this->OutputAttachment.Attachment;
 
 	/****************************
 	 * Initial pipeline barrier

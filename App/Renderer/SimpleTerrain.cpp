@@ -1,6 +1,8 @@
 #include "SimpleTerrain.hpp"
 #include "PlaneGeometry.hpp"
 
+#include <LearnVulkan/GeneratedTemplate/ResourcePath.hpp>
+
 #include "../Common/FixedArray.hpp"
 #include "../Common/ErrorHandler.hpp"
 #include "../Common/File.hpp"
@@ -93,7 +95,7 @@ namespace {
 	constexpr array TerrainShaderKind = { shaderc_vertex_shader, shaderc_tess_control_shader,
 		shaderc_tess_evaluation_shader, shaderc_fragment_shader };
 
-	constexpr auto TerrainShaderFilenameRaw = File::toAbsolutePath<EngineSetting::ShaderRoot, TerrainVS, TerrainTEC, TerrainTEE, TerrainFS>();
+	constexpr auto TerrainShaderFilenameRaw = File::toAbsolutePath<ResourcePath::ShaderRoot, TerrainVS, TerrainTEC, TerrainTEE, TerrainFS>();
 	constexpr auto TerrainShaderFilename = File::batchRawStringToView(TerrainShaderFilenameRaw);
 
 	/********************
@@ -642,8 +644,6 @@ SimpleTerrain::DrawResult SimpleTerrain::draw(const DrawInfo& draw_info) {
 	const VkCommandBuffer cmd = this->TerrainDrawCmd[frame_index];
 	CHECK_VULKAN_ERROR(vkResetCommandBuffer(cmd, { }));
 	CommandBufferManager::beginOneTimeSubmit(cmd);
-
-	const auto& current_atm = this->OutputAttachment.Attachment;
 
 	/************************
 	 * Subpass dependencies

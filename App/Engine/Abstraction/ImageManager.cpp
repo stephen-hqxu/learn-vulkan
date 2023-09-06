@@ -2,7 +2,7 @@
 #include "PipelineBarrier.hpp"
 
 #include "../../Common/ErrorHandler.hpp"
-#include "../../VulkanLoader/stb_image.h"
+#include "../../../External/stb_image.h"
 
 #include <string>
 

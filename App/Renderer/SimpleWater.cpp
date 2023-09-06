@@ -1,6 +1,8 @@
 #include "SimpleWater.hpp"
 #include "PlaneGeometry.hpp"
 
+#include <LearnVulkan/GeneratedTemplate/ResourcePath.hpp>
+
 #include "../Common/ErrorHandler.hpp"
 #include "../Common/File.hpp"
 
@@ -79,7 +81,7 @@ namespace {
 		WaterFS = "/SimpleWater.frag";
 	constexpr array WaterShaderKind = { shaderc_vertex_shader, shaderc_fragment_shader };
 
-	constexpr auto WaterShaderFilenameRaw = File::toAbsolutePath<EngineSetting::ShaderRoot, WaterVS, WaterFS>();
+	constexpr auto WaterShaderFilenameRaw = File::toAbsolutePath<ResourcePath::ShaderRoot, WaterVS, WaterFS>();
 	constexpr auto WaterShaderFilename = File::batchRawStringToView(WaterShaderFilenameRaw);
 
 	/****************

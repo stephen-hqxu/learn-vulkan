@@ -11,6 +11,8 @@
 #include "Renderer/DrawTriangle.hpp"
 #include "Renderer/SimpleTerrain.hpp"
 
+#include <LearnVulkan/GeneratedTemplate/ResourcePath.hpp>
+
 //Rendering Framework
 #include <Volk/volk.h>
 #include <GLFW/glfw3.h>
@@ -173,7 +175,7 @@ namespace {
 			using namespace LearnVulkan;
 			namespace IM = ImageManager;
 			using enum SampleApplicationName;
-			using EngineSetting::ResourceRoot;
+			using ResourcePath::ResourceRoot;
 
 			const VulkanContext& ctx = engine.context();
 			switch (app_name) {
@@ -206,7 +208,7 @@ namespace {
 
 				constexpr static string_view TerrainHeightmapFilename = "/Heightfield-Texture-Sample/heightfield.png",
 					TerrainNormalmapFilename = "/Heightfield-Texture-Sample/heightfield_normal.png",
-					WaterNormalmapFilename = "/waterNormal.png", WaterDistortionFilename = "/waterDUDV.png";
+					WaterNormalmapFilename = "/Water/waterNormal.png", WaterDistortionFilename = "/Water/waterDUDV.png";
 				constexpr static auto TerrainHeightmapFullPath = File::toAbsolutePath<ResourceRoot, TerrainHeightmapFilename>();
 				constexpr static auto TerrainNormalmapFullPath = File::toAbsolutePath<ResourceRoot, TerrainNormalmapFilename>();
 				constexpr static auto WaterNormalmapFullPath = File::toAbsolutePath<ResourceRoot, WaterNormalmapFilename>();
