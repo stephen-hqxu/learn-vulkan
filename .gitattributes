@@ -1,3 +1,4 @@
 *.comp linguist-language=GLSL
 
-VulkanLoader/stb_image.h linguist-vendored
+External/* -linguist-vendored
+External/stb_image.h linguist-vendored
