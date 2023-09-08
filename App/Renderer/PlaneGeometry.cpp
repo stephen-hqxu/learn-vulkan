@@ -213,27 +213,22 @@ namespace {
 		};
 
 		array<VKO::Pipeline, PlaneShaderFilename.size()> pipeline;
-		transform(layout, pipeline.begin(), [device, &gen = plane_shader_gen, &spec_info](const VkPipelineLayout layout) {
-			gen.resume();
-			const auto [sm_info, stage] = gen.promise();
-			
-			return VKO::createComputePipeline(device, VK_NULL_HANDLE, {
-				.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
-				.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
+		transform(plane_shader_gen.promise().ShaderStage, layout, pipeline.begin(),
+			[device, &spec_info](const auto& stage, const VkPipelineLayout layout) {
+				VkPipelineShaderStageCreateInfo spec_stage = stage;
+				spec_stage.pSpecializationInfo = &spec_info;
+
+				return VKO::createComputePipeline(device, VK_NULL_HANDLE, {
+					.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+					.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
 #ifndef NDEBUG
-				| VK_PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT
+					| VK_PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT
 #endif
-				,
-				.stage = {
-					.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-					.pNext = sm_info,
-					.stage = stage,
-					.pName = "main",
-					.pSpecializationInfo = &spec_info
-				},
-				.layout = layout
-			});	
-		});
+					,
+					.stage = spec_stage,
+					.layout = layout
+				});	
+			});
 		return pipeline;
 	}
 

@@ -41,7 +41,7 @@ using glm::mat4;
 
 using std::array, std::span, std::string_view;
 using std::tuple, std::make_tuple;
-using std::views::iota, std::ranges::transform, std::ranges::generate;
+using std::views::iota, std::ranges::transform;
 using std::ostream, std::endl, std::runtime_error;
 
 using namespace LearnVulkan;
@@ -164,21 +164,7 @@ namespace {
 	}
 
 	VKO::Pipeline createTerrainGraphicsPipeline(const VkDevice device, const VkPipelineLayout layout, ostream& out) {
-		/////////////////////
-		/// Shader stage
-		/////////////////////
-		array<VkPipelineShaderStageCreateInfo, ::TerrainShaderKind.size()> terrain_shader_stage;
 		const auto terrain_shader_gen = compileTerrainShader(device, out);
-		generate(terrain_shader_stage, [&gen = terrain_shader_gen]() {
-			gen.resume();
-			const auto [sm_info, stage] = gen.promise();
-			return VkPipelineShaderStageCreateInfo {
-				.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-				.pNext = sm_info,
-				.stage = stage,
-				.pName = "main"
-			};
-		});
 
 		////////////////////////////
 		/// Vertex input state
@@ -209,7 +195,7 @@ namespace {
 		};
 
 		return PipelineManager::createSimpleGraphicsPipeline(device, layout, {
-			.ShaderStage = terrain_shader_stage,
+			.ShaderStage = terrain_shader_gen.promise().ShaderStage,
 			.VertexInputState = &terrain_vertex_input,
 			.Rendering = &terrain_rendering,
 			.PrimitiveTopology = VK_PRIMITIVE_TOPOLOGY_PATCH_LIST,

@@ -107,23 +107,34 @@ namespace {
 		}
 	}
 
+	shaderc::CompileOptions createCommonShaderCompileOption() {
+		shaderc::CompileOptions option;
+		//compiler optimisation
+#ifndef NDEBUG
+		option.SetGenerateDebugInfo();
+		option.SetOptimizationLevel(shaderc_optimization_level_zero);
+#else
+		option.SetOptimizationLevel(shaderc_optimization_level_performance);
+#endif
+
+		//language standard
+		option.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_3);
+		option.SetTargetSpirv(shaderc_spirv_version_1_6);
+
+		//include
+		option.SetIncluder(make_unique<ShaderIncluder>());
+
+		return option;
+	}
+
 }
 
-const shaderc::CompileOptions ShaderModuleManager::DefaultCompileOption = ShaderModuleManager::createCommonShaderCompileOption();
+const shaderc::CompileOptions ShaderModuleManager::DefaultCompileOption = ::createCommonShaderCompileOption();
 
 ShaderModuleManager::ShaderOutputGenerator::~ShaderOutputGenerator() {
 	if (*this) {
 		this->destroy();
 	}
-}
-
-ShaderModuleManager::ShaderOutputView::ShaderOutputView() noexcept : SMInfo(nullptr), Stage(VK_SHADER_STAGE_ALL) {
-
-}
-
-ShaderModuleManager::ShaderOutputView::ShaderOutputView(const _Internal::ShaderOutput& shader_output) noexcept :
-	SMInfo(&shader_output.SMInfo), Stage(shader_output.Stage) {
-
 }
 
 ShaderModuleManager::ShaderOutputGenerator ShaderModuleManager::ShaderOutputView::get_return_object() noexcept {
@@ -150,26 +161,6 @@ void ShaderModuleManager::ShaderOutputView::unhandled_exception() {
 		std::cerr << e.what() << endl;
 		std::terminate();
 	}
-}
-
-shaderc::CompileOptions ShaderModuleManager::createCommonShaderCompileOption() {
-	shaderc::CompileOptions option;
-	//compiler optimisation
-#ifndef NDEBUG
-	option.SetGenerateDebugInfo();
-	option.SetOptimizationLevel(shaderc_optimization_level_zero);
-#else
-	option.SetOptimizationLevel(shaderc_optimization_level_performance);
-#endif
-
-	//language standard
-	option.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_3);
-	option.SetTargetSpirv(shaderc_spirv_version_1_6);
-
-	//include
-	option.SetIncluder(make_unique<ShaderIncluder>());
-
-	return option;
 }
 
 void ShaderModuleManager::_Internal::batchShaderCompilation(const ShaderBatchCompilationInfo& info, ostream& out,

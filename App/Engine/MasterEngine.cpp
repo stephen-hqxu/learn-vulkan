@@ -71,8 +71,7 @@ namespace {
 
 		VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME,
 		VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME,
-		VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME,
-		VK_EXT_VERTEX_ATTRIBUTE_DIVISOR_EXTENSION_NAME
+		VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME
 	};
 
 	constexpr CTX::DeviceRequirement ContextRequirement = {
@@ -265,14 +264,9 @@ namespace {
 			.pNext = &timeline_sema,
 			.separateDepthStencilLayouts = VK_TRUE
 		};
-		VkPhysicalDeviceVertexAttributeDivisorFeaturesEXT instancing {
-			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_ATTRIBUTE_DIVISOR_FEATURES_EXT,
-			.pNext = &sep_depth_stencil,
-			.vertexAttributeInstanceRateDivisor = VK_TRUE
-		};
 		VkPhysicalDeviceSynchronization2Features sync2 {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES,
-			.pNext = &instancing,
+			.pNext = &sep_depth_stencil,
 			.synchronization2 = VK_TRUE
 		};
 		VkPhysicalDeviceIndexTypeUint8FeaturesEXT uint8_index {

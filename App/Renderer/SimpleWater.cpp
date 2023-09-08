@@ -34,7 +34,7 @@ using glm::uvec2, glm::dvec2,
 using glm::mat4;
 
 using std::array, std::string_view, std::tuple;
-using std::views::iota, std::ranges::transform, std::ranges::generate;
+using std::views::iota, std::ranges::transform;
 using std::ostream, std::endl;
 
 using namespace LearnVulkan;
@@ -147,21 +147,7 @@ namespace {
 
 	VKO::Pipeline createWaterPipeline(const VkDevice device, VkPipelineLayout layout, ostream& out,
 		const SimpleWater::DrawFormat& format) {
-		/////////////////////////
-		/// Shader compilation
-		////////////////////////
-		const ShaderModuleManager::ShaderOutputGenerator water_shader_gen = compileWaterShader(device, out);
-		array<VkPipelineShaderStageCreateInfo, ::WaterShaderKind.size()> water_shader_stage;
-		generate(water_shader_stage, [&gen = water_shader_gen]() {
-			gen.resume();
-			const auto [sm_info, stage] = gen.promise();
-			return VkPipelineShaderStageCreateInfo {
-				.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-				.pNext = sm_info,
-				.stage = stage,
-				.pName = "main"
-			};
-		});
+		const auto water_shader_gen = compileWaterShader(device, out);
 
 		/////////////////////////
 		/// Vertex input
@@ -208,7 +194,7 @@ namespace {
 			.depthAttachmentFormat = depth_format
 		};
 		return PipelineManager::createSimpleGraphicsPipeline(device, layout, {
-			.ShaderStage = water_shader_stage,
+			.ShaderStage = water_shader_gen.promise().ShaderStage,
 			.VertexInputState = &water_vertex_input,
 			.Rendering = &water_rendering,
 			.PrimitiveTopology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,

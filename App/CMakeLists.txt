@@ -8,6 +8,7 @@ add_executable(${LV_MAIN}
 	Common/File.cpp
 	Common/File.hpp
 	Common/FixedArray.hpp
+	Common/SpanArray.hpp
 	Common/StaticArray.hpp
 	Common/VulkanObject.cpp
 	Common/VulkanObject.hpp

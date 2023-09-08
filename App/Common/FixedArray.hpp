@@ -1,7 +1,6 @@
 #pragma once
 
 #include <array>
-
 #include <utility>
 #include <type_traits>
 #include <cassert>
@@ -34,7 +33,7 @@ namespace LearnVulkan {
 		 * @brief Get the maximum size of the array.
 		 * @return The maximum size of the array.
 		*/
-		consteval size_t maxSize() const noexcept {
+		consteval size_t capacity() const noexcept {
 			return N;
 		}
 
@@ -53,8 +52,6 @@ namespace LearnVulkan {
 		constexpr T* data() noexcept {
 			return this->Array.data();
 		}
-
-		//@see data()
 		constexpr const T* data() const noexcept {
 			return this->Array.data();
 		}
@@ -68,8 +65,6 @@ namespace LearnVulkan {
 			assert(index < this->Size);
 			return this->Array[index];
 		}
-
-		//@see operator[]
 		constexpr const T& operator[](const size_t index) const noexcept {
 			assert(index < this->Size);
 			return this->Array[index];

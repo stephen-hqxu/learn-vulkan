@@ -19,7 +19,6 @@
 #include <array>
 #include <initializer_list>
 #include <utility>
-#include <algorithm>
 #include <numeric>
 #include <ranges>
 
@@ -40,7 +39,6 @@ using glm::vec4, glm::dvec4;
 using glm::mat4, glm::dmat4;
 
 using std::array, std::string_view;
-using std::ranges::generate;
 using std::ostream, std::endl;
 
 using namespace LearnVulkan;
@@ -142,21 +140,7 @@ namespace {
 	}
 
 	VKO::Pipeline createTriangleGraphicsPipeline(const VkDevice device, const VkPipelineLayout layout, ostream& out) {
-		////////////////////////
-		///	Shader stage
-		////////////////////////
-		array<VkPipelineShaderStageCreateInfo, TriangleShaderKind.size()> triangle_shader_stage;
 		const auto triangle_shader_gen = compileTriangleShader(device, out);
-		generate(triangle_shader_stage, [&gen = triangle_shader_gen]() {
-			gen.resume();
-			const auto [sm_info, stage] = gen.promise();
-			return VkPipelineShaderStageCreateInfo {
-				.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-				.pNext = sm_info,
-				.stage = stage,
-				.pName = "main"
-			};
-		});
 
 		////////////////////////
 		/// Vertex input state
@@ -199,7 +183,7 @@ namespace {
 		};
 
 		return PipelineManager::createSimpleGraphicsPipeline(device, layout, {
-			.ShaderStage = triangle_shader_stage,
+			.ShaderStage = triangle_shader_gen.promise().ShaderStage,
 			.VertexInputState = &triangle_vertex_input,
 			.Rendering = &triangle_rendering,
 			.PrimitiveTopology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
