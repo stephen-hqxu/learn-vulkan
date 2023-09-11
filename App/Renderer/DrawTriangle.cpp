@@ -6,11 +6,11 @@
 #include "../Common/File.hpp"
 
 #include "../Engine/Abstraction/BufferManager.hpp"
-#include "../Engine/Abstraction/CommandBufferManager.hpp"
 #include "../Engine/Abstraction/PipelineBarrier.hpp"
 #include "../Engine/Abstraction/PipelineManager.hpp"
 #include "../Engine/Abstraction/SemaphoreManager.hpp"
 #include "../Engine/Abstraction/ShaderModuleManager.hpp"
+#include "../Engine/EngineSetting.hpp"
 #include "../Engine/IndirectCommand.hpp"
 
 #include <shaderc/shaderc.h>
@@ -193,16 +193,6 @@ namespace {
 		});
 	}
 
-	inline VKO::CommandBufferArray createTriangleCommandBuffer(const VkDevice device, const VkCommandPool cmd_pool) {
-		const VkCommandBufferAllocateInfo triangle_cmd {
-			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-			.commandPool = cmd_pool,
-			//A number of in-flight frame plus 1 for reshape
-			.commandBufferCount = static_cast<uint32_t>(EngineSetting::MaxFrameInFlight) + 1u
-		};
-		return VKO::allocateCommandBuffers(device, triangle_cmd);
-	}
-
 	inline VKO::BufferAllocation createTriangleBuffer(const VkDevice device, const VmaAllocator allocator) {
 		return BufferManager::createDeviceBuffer({ device, allocator, sizeof(TriangleVertexIndexData) },
 			VK_BUFFER_USAGE_TRANSFER_DST_BIT |
@@ -255,20 +245,24 @@ DrawTriangle::DrawTriangle(const VulkanContext& ctx, const TriangleCreateInfo& t
 	PipelineLayout(createTrianglePipelineLayout(this->getDevice(), array { triangle_info.CameraDescriptorSetLayout, *this->TriangleShaderLayout })),
 	Pipeline(createTriangleGraphicsPipeline(this->getDevice(), this->PipelineLayout, *triangle_info.DebugMessage)),
 
-	TriangleCommand(createTriangleCommandBuffer(this->getDevice(), ctx.CommandPool.General)),
-	TriangleDrawCmd(this->TriangleCommand.get(), EngineSetting::MaxFrameInFlight),
-	TriangleReshapeCmd(*(this->TriangleCommand.get() + this->TriangleDrawCmd.size())),
+	TriangleDrawCmd(std::get<CommandBufferManager::InFlightCommandBufferArray>(
+		CommandBufferManager::allocateCommandBuffer(ctx, VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+			CommandBufferManager::CommandBufferType::InFlight)
+	)),
+	TriangleReshapeCmd(std::get<VKO::CommandBuffer>(
+		CommandBufferManager::allocateCommandBuffer(ctx, VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+			CommandBufferManager::CommandBufferType::Reshape)
+	)),
 	CurrentAngle(0.0) {
 	//upload data using high performance staging buffer
 	{
 		const VKO::Semaphore copy_sema = SemaphoreManager::createTimelineSemaphore(this->getDevice(), 0ull);
-		const VKO::CommandBufferArray copy_cmd_array = VKO::allocateCommandBuffers(this->getDevice(), {
+		const VKO::CommandBuffer copy_cmd = VKO::allocateCommandBuffer(this->getDevice(), {
 			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
 			.commandPool = ctx.CommandPool.Transient,
 			.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 			.commandBufferCount = 1u
 		});
-		const VkCommandBuffer copy_cmd = copy_cmd_array[0];
 		CommandBufferManager::beginOneTimeSubmit(copy_cmd);
 
 		/***********************
@@ -433,7 +427,6 @@ void DrawTriangle::reshape(const ReshapeInfo& reshape_info) {
 	});
 
 	const VkCommandBuffer cmd = this->TriangleReshapeCmd;
-	CHECK_VULKAN_ERROR(vkResetCommandBuffer(cmd, { }));
 	CommandBufferManager::beginOneTimeSubmit(cmd);
 	
 	FramebufferManager::prepareFramebuffer(cmd, this->OutputAttachment, { VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL });
@@ -446,7 +439,6 @@ DrawTriangle::DrawResult DrawTriangle::draw(const DrawInfo& draw_info) {
 	const auto [ctx, camera, delta_time, frame_index, vp, draw_area, present_img, present_img_view] = draw_info;
 
 	const VkCommandBuffer cmd = this->TriangleDrawCmd[frame_index];
-	CHECK_VULKAN_ERROR(vkResetCommandBuffer(cmd, { }));
 	CommandBufferManager::beginOneTimeSubmit(cmd);
 
 	/****************************

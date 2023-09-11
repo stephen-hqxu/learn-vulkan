@@ -3,12 +3,14 @@
 
 #include <algorithm>
 
+#include <stdexcept>
 #include <cassert>
 
 using std::span;
 using std::ranges::transform;
 
 using namespace LearnVulkan;
+namespace VKO = VulkanObject;
 namespace CmdMgr = CommandBufferManager;
 
 #define EXPAND_COMMAND_BUFFER_SUBMIT_INFO const auto [cmd, cmd_submit_memory] = cmd_buf_submit_info
@@ -71,6 +73,43 @@ void CmdMgr::_Internal::submit(const CommandSubmitInfo& submit_info, const Comma
 		CHECK_VULKAN_ERROR(vkResetFences(device, 1u, &fence));
 	}
 	CHECK_VULKAN_ERROR(vkQueueSubmit2(queue, 1u, &queue_submit_info, fence));
+}
+
+VKO::CommandPool CmdMgr::createCommandPool(const VkDevice device, const VkCommandPoolCreateFlags flag, const uint32_t queue_idx) {
+	const VkCommandPoolCreateInfo pool_create_info {
+		.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+		.flags = flag,
+		.queueFamilyIndex = queue_idx
+	};
+	return VKO::createCommandPool(device, pool_create_info);
+}
+
+CmdMgr::AllocatedCommandBuffer CmdMgr::allocateCommandBuffer(const VulkanContext& ctx,
+	const VkCommandBufferLevel level, const CommandBufferType type) {
+	VkCommandBufferAllocateInfo cmd_allocate_info {
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+		.level = level,
+		.commandBufferCount = 1u
+	};
+
+	using enum CommandBufferType;
+	switch (type) {
+	case Reshape:
+		cmd_allocate_info.commandPool = ctx.CommandPool.Reshape;
+		return VKO::allocateCommandBuffer(ctx.Device, cmd_allocate_info);
+	case InFlight:
+	{
+		InFlightCommandBufferArray cmd;
+		transform(ctx.CommandPool.InFlightCommandPool, cmd.begin(),
+			[device = *ctx.Device, &cmd_allocate_info](const VkCommandPool pool) {
+				cmd_allocate_info.commandPool = pool;
+				return VKO::allocateCommandBuffer(device, cmd_allocate_info);
+			}, [](const auto& pool_obj) constexpr noexcept { return *pool_obj; });
+		return cmd;
+	}
+	default:
+		throw std::runtime_error("The type of command buffer to be allocated is unknown.");
+	}
 }
 
 void CmdMgr::beginOneTimeSubmit(const VkCommandBuffer cmd) {

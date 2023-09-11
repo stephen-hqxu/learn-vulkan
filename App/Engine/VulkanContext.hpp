@@ -3,6 +3,7 @@
 #include "EngineSetting.hpp"
 #include "../Common/VulkanObject.hpp"
 
+#include <array>
 #include <unordered_set>
 
 #include <cstdint>
@@ -44,7 +45,16 @@ namespace LearnVulkan {
 		VulkanObject::Allocator Allocator;
 		struct {
 
-			VulkanObject::CommandPool General, Transient;
+			//This command pool does not allow individual command buffer reset,
+			//and a pool-level reset is performed at the beginning of every in-flight frame.
+			std::array<VulkanObject::CommandPool, EngineSetting::MaxFrameInFlight> InFlightCommandPool;
+
+			//The reshape pool disallows individual command buffer reset, and will be reset at the beginning of every reshape event.
+			VulkanObject::CommandPool Reshape,
+				//The transient pool is optimised for temporary command buffer use, and does not allow reset.
+				Transient,
+				//The general pool allows individual reset.
+				General;
 
 		} CommandPool;
 

@@ -135,6 +135,15 @@ namespace LearnVulkan {
 
 			};
 
+			struct CommandBufferFreer {
+
+				VULKAN_OBJECT_DELETER_COMMON_MEMBER(VkCommandBuffer);
+
+				VkDevice Device;
+				VkCommandPool CmdPool;
+
+			};
+
 			struct CommandBuffersFreer {
 
 				VULKAN_OBJECT_DELETER_COMMON_MEMBER(VkCommandBuffer*);
@@ -285,6 +294,7 @@ namespace LearnVulkan {
 		CREATE_VULKAN_OBJECT_ALIAS(RenderPass, VkRenderPass, RenderPassDestroyer);/**< VkRenderPass */
 		CREATE_VULKAN_OBJECT_ALIAS(Framebuffer, VkFramebuffer, FramebufferDestroyer);/**< VkFramebuffer */
 		CREATE_VULKAN_OBJECT_ALIAS(CommandPool, VkCommandPool, CommandPoolDestroyer);/**< VkCommandPool */
+		CREATE_VULKAN_OBJECT_ALIAS(CommandBuffer, VkCommandBuffer, CommandBufferFreer);/**< VkCommandBuffer */
 		CREATE_VULKAN_OBJECT_ALIAS(Semaphore, VkSemaphore, SemaphoreDestroyer);/**< VkSemaphore */
 		CREATE_VULKAN_OBJECT_ALIAS(Buffer, VkBuffer, BufferDestroyer);/**< VkBuffer */
 		CREATE_VULKAN_OBJECT_ALIAS(DescriptorSetLayout, VkDescriptorSetLayout, DescriptorSetLayoutDestroyer);/**< VkDescriptorSetLayout */
@@ -334,6 +344,8 @@ namespace LearnVulkan {
 		Sampler createSampler(VkDevice, const VkSamplerCreateInfo&);
 		QueryPool createQueryPool(VkDevice, const VkQueryPoolCreateInfo&);
 
+		//The number of command buffer to be allocated must be one, otherwise behaviour is undefined.
+		CommandBuffer allocateCommandBuffer(VkDevice, const VkCommandBufferAllocateInfo&);
 		CommandBufferArray allocateCommandBuffers(VkDevice, const VkCommandBufferAllocateInfo&);
 
 		DebugUtilsMessengerEXT createDebugUtilsMessengerEXT(VkInstance, const VkDebugUtilsMessengerCreateInfoEXT&);

@@ -7,11 +7,11 @@
 #include "../Common/File.hpp"
 
 #include "../Engine/Abstraction/BufferManager.hpp"
-#include "../Engine/Abstraction/CommandBufferManager.hpp"
 #include "../Engine/Abstraction/PipelineBarrier.hpp"
 #include "../Engine/Abstraction/PipelineManager.hpp"
 #include "../Engine/Abstraction/SemaphoreManager.hpp"
 #include "../Engine/Abstraction/ShaderModuleManager.hpp"
+#include "../Engine/EngineSetting.hpp"
 
 #include <shaderc/shaderc.h>
 
@@ -204,15 +204,6 @@ namespace {
 		});
 	}
 
-	inline VKO::CommandBufferArray createWaterCommandBuffer(const VkDevice device, const VkCommandPool cmd_pool) {
-		return VKO::allocateCommandBuffers(device, {
-			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-			.commandPool = cmd_pool,
-			.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY,
-			.commandBufferCount = static_cast<uint32_t>(EngineSetting::MaxFrameInFlight)
-		});
-	}
-
 	inline VKO::BufferAllocation createWaterUniformBuffer(const VkDevice device, const VmaAllocator allocator) {
 		return BufferManager::createDeviceBuffer({ device, allocator, sizeof(::WaterData) },
 			VK_BUFFER_USAGE_TRANSFER_DST_BIT |
@@ -234,7 +225,10 @@ SimpleWater::SimpleWater(const VulkanContext& ctx, const WaterCreateInfo& water_
 	})),
 	Pipeline(createWaterPipeline(this->getDevice(), this->PipelineLayout, *water_info.DebugMessage, water_info.OutputFormat)),
 
-	WaterCommand(createWaterCommandBuffer(this->getDevice(), ctx.CommandPool.General)),
+	WaterCommand(std::get<CommandBufferManager::InFlightCommandBufferArray>(
+		CommandBufferManager::allocateCommandBuffer(ctx, VK_COMMAND_BUFFER_LEVEL_SECONDARY,
+			CommandBufferManager::CommandBufferType::InFlight)
+	)),
 	Animator(0.0) {
 	{
 		const VKO::Semaphore sema = SemaphoreManager::createTimelineSemaphore(this->getDevice(), 0ull);
@@ -585,7 +579,6 @@ RendererInterface::DrawResult SimpleWater::draw(const DrawInfo& draw_info) const
 	const auto [ctx, camera, delta_time, frame_idx, vp, render_area, resolve_img, resolve_img_view] = *inherited_draw_info;
 
 	const VkCommandBuffer cmd = this->WaterCommand[frame_idx];
-	CHECK_VULKAN_ERROR(vkResetCommandBuffer(cmd, { }));
 	CommandBufferManager::beginOneTimeSubmitSecondary(cmd);
 
 	/***********************

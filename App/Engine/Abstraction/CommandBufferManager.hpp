@@ -1,9 +1,12 @@
 #pragma once
 
-#include <Volk/volk.h>
+#include "../../Common/VulkanObject.hpp"
+#include "../EngineSetting.hpp"
+#include "../VulkanContext.hpp"
 
 #include <array>
 #include <span>
+#include <variant>
 #include <utility>
 
 namespace LearnVulkan {
@@ -12,6 +15,23 @@ namespace LearnVulkan {
 	 * @brief A factory for managing command buffer usage.
 	*/
 	namespace CommandBufferManager {
+
+		/**
+		 * @brief Allocated command buffer, one from each in-flight command pool.
+		*/
+		using InFlightCommandBufferArray = std::array<VulkanObject::CommandBuffer, EngineSetting::MaxFrameInFlight>;
+
+		using AllocatedCommandBuffer = std::variant<VulkanObject::CommandBuffer, InFlightCommandBufferArray>;
+
+		/**
+		 * @brief The type of command buffer.
+		*/
+		enum class CommandBufferType : uint8_t {
+			//Returns a single command buffer.
+			Reshape = 0x00u,
+			//Returns in-flight command buffer array.
+			InFlight = 0x10u
+		};
 
 		/**
 		 * @brief Information required to submit command buffers.
@@ -53,6 +73,24 @@ namespace LearnVulkan {
 				SemaphoreSubmitInfo, SemaphoreSubmitInfo, VkFence);
 
 		}
+
+		/**
+		 * @brief Create a command pool.
+		 * @param device The device.
+		 * @param flag The command pool create flag.
+		 * @param queue_idx The queue family index.
+		 * @return The created command pool.
+		*/
+		VulkanObject::CommandPool createCommandPool(VkDevice, VkCommandPoolCreateFlags, uint32_t);
+
+		/**
+		 * @brief Allocate command buffer.
+		 * @param ctx The vulkan context.
+		 * @param level The level of command buffer to be allocated.
+		 * @param type The type of command buffer to be allocated.
+		 * @return A variant of command buffer in different data structure, depending on type of allocation.
+		*/
+		AllocatedCommandBuffer allocateCommandBuffer(const VulkanContext&, VkCommandBufferLevel, CommandBufferType);
 	
 		/**
 		 * @brief Begin a one time submission buffer.

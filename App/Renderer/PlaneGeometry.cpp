@@ -353,7 +353,6 @@ VkCommandBuffer PlaneGeometry::prepareGeometryData(const VulkanContext& ctx, con
 	 * Prepare plane input parameter buffer
 	 ***************************************/
 	{
-		CHECK_VULKAN_ERROR(vkResetCommandBuffer(copy_cmd, { }));
 		CommandBufferManager::beginOneTimeSubmitSecondary(copy_cmd);
 
 		/*******************

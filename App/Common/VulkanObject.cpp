@@ -75,6 +75,10 @@ DEFINE_VULKAN_OBJECT_DELETER(CommandPoolDestroyer, cmd_pool) {
 	vkDestroyCommandPool(this->Device, cmd_pool, nullptr);
 }
 
+DEFINE_VULKAN_OBJECT_DELETER(CommandBufferFreer, cmd_buf) {
+	vkFreeCommandBuffers(this->Device, this->CmdPool, 1u, &cmd_buf);
+}
+
 DEFINE_VULKAN_OBJECT_DELETER(CommandBuffersFreer, cmd_bufs) {
 	vkFreeCommandBuffers(this->Device, this->CmdPool, this->Count, cmd_bufs);
 	delete[] cmd_bufs;
@@ -206,6 +210,13 @@ DEFINE_VULKAN_OBJECT_CREATOR(CommandPool, createCommandPool, const VkDevice devi
 	VkCommandPool cmd_pool;
 	CHECK_VULKAN_ERROR(vkCreateCommandPool(device, &pCreateInfo, nullptr, &cmd_pool));
 	return CommandPool(cmd_pool, { device });
+}
+
+DEFINE_VULKAN_OBJECT_CREATOR(CommandBuffer, allocateCommandBuffer, const VkDevice device, const VkCommandBufferAllocateInfo& pAllocateInfo) {
+	assert(pAllocateInfo.commandBufferCount == 1u);
+	VkCommandBuffer cmd;
+	CHECK_VULKAN_ERROR(vkAllocateCommandBuffers(device, &pAllocateInfo, &cmd));
+	return CommandBuffer(cmd, { device, pAllocateInfo.commandPool });
 }
 
 DEFINE_VULKAN_OBJECT_CREATOR(CommandBufferArray, allocateCommandBuffers, const VkDevice device, const VkCommandBufferAllocateInfo& pAllocateInfo) {

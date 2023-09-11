@@ -8,11 +8,11 @@
 #include "../Common/File.hpp"
 
 #include "../Engine/Abstraction/BufferManager.hpp"
-#include "../Engine/Abstraction/CommandBufferManager.hpp"
 #include "../Engine/Abstraction/PipelineBarrier.hpp"
 #include "../Engine/Abstraction/PipelineManager.hpp"
 #include "../Engine/Abstraction/SemaphoreManager.hpp"
 #include "../Engine/Abstraction/ShaderModuleManager.hpp"
+#include "../Engine/EngineSetting.hpp"
 
 #include <shaderc/shaderc.h>
 
@@ -122,17 +122,6 @@ namespace {
 		return VKO::createPipelineLayout(device, terrain_layout);
 	}
 
-	inline VKO::CommandBufferArray createTerrainCommandBuffer(const VkDevice device, const VkCommandPool cmd_pool) {
-		const VkCommandBufferAllocateInfo terrain_cmd {
-			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-			.commandPool = cmd_pool,
-			.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-			//an additional one for reshape
-			.commandBufferCount = static_cast<uint32_t>(EngineSetting::MaxFrameInFlight) + 1u
-		};
-		return VKO::allocateCommandBuffers(device, terrain_cmd);
-	}
-
 	inline VKO::DescriptorSetLayout createTerrainDescriptorSetLayout(const VkDevice device) {
 		constexpr static size_t BindingCount = 5u;
 		constexpr static auto terrain_ds_info = array<tuple<VkDescriptorType, VkShaderStageFlags>, BindingCount> {
@@ -221,9 +210,14 @@ SimpleTerrain::SimpleTerrain(const VulkanContext& ctx, const TerrainCreateInfo& 
 	PipelineLayout(createTerrainPipelineLayout(this->getDevice(), array { terrain_info.CameraDescriptorSetLayout, *this->TerrainShaderLayout })),
 	Pipeline(createTerrainGraphicsPipeline(this->getDevice(), this->PipelineLayout, *terrain_info.DebugMessage)),
 	
-	TerrainCommand(createTerrainCommandBuffer(this->getDevice(), ctx.CommandPool.General)),
-	TerrainDrawCmd(this->TerrainCommand.get(), EngineSetting::MaxFrameInFlight),
-	TerrainReshapeCmd(*(this->TerrainCommand.get() + this->TerrainDrawCmd.size())) {
+	TerrainDrawCmd(std::get<CommandBufferManager::InFlightCommandBufferArray>(
+		CommandBufferManager::allocateCommandBuffer(ctx, VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+			CommandBufferManager::CommandBufferType::InFlight)
+	)),
+	TerrainReshapeCmd(std::get<VKO::CommandBuffer>(
+		CommandBufferManager::allocateCommandBuffer(ctx, VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+			CommandBufferManager::CommandBufferType::Reshape)
+	)) {
 	//needs to ensure the plane generator survives until generation is complete
 	const auto plane_generator = PlaneGeometry(ctx, *terrain_info.DebugMessage);
 	const bool render_water = terrain_info.WaterInfo != nullptr;
@@ -606,7 +600,6 @@ void SimpleTerrain::reshape(const ReshapeInfo& reshape_info) {
 	});
 
 	const VkCommandBuffer cmd = this->TerrainReshapeCmd;
-	CHECK_VULKAN_ERROR(vkResetCommandBuffer(cmd, { }));
 	CommandBufferManager::beginOneTimeSubmit(cmd);
 
 	FramebufferManager::prepareFramebuffer(cmd, this->OutputAttachment, { VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL });
@@ -628,7 +621,6 @@ SimpleTerrain::DrawResult SimpleTerrain::draw(const DrawInfo& draw_info) {
 	const bool draw_water = this->WaterRenderer.has_value();
 
 	const VkCommandBuffer cmd = this->TerrainDrawCmd[frame_index];
-	CHECK_VULKAN_ERROR(vkResetCommandBuffer(cmd, { }));
 	CommandBufferManager::beginOneTimeSubmit(cmd);
 
 	/************************

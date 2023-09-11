@@ -4,11 +4,11 @@
 #include "PlaneGeometry.hpp"
 
 #include "../Engine/CameraInterface.hpp"
-#include "../Engine/EngineSetting.hpp"
 #include "../Engine/RendererInterface.hpp"
 #include "../Engine/VulkanContext.hpp"
 
 #include "../Engine/Abstraction/AccelStructManager.hpp"
+#include "../Engine/Abstraction/CommandBufferManager.hpp"
 #include "../Engine/Abstraction/DescriptorBufferManager.hpp"
 #include "../Engine/Abstraction/FramebufferManager.hpp"
 #include "../Engine/Abstraction/ImageManager.hpp"
@@ -102,7 +102,7 @@ namespace LearnVulkan {
 		const VulkanObject::PipelineLayout PipelineLayout;
 		const VulkanObject::Pipeline Pipeline;
 
-		const VulkanObject::CommandBufferArray WaterCommand;
+		const CommandBufferManager::InFlightCommandBufferArray WaterCommand;
 		DescriptorBufferManager WaterShaderDescriptorBuffer;
 
 		mutable double Animator;

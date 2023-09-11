@@ -1,9 +1,9 @@
 #pragma once
 
 #include "../Engine/RendererInterface.hpp"
-#include "../Engine/EngineSetting.hpp"
 #include "../Engine/VulkanContext.hpp"
 
+#include "../Engine/Abstraction/CommandBufferManager.hpp"
 #include "../Engine/Abstraction/DescriptorBufferManager.hpp"
 #include "../Engine/Abstraction/FramebufferManager.hpp"
 #include "../Engine/Abstraction/ImageManager.hpp"
@@ -40,9 +40,8 @@ namespace LearnVulkan {
 		const VulkanObject::PipelineLayout PipelineLayout;
 		const VulkanObject::Pipeline Pipeline;
 
-		const VulkanObject::CommandBufferArray TriangleCommand;
-		const std::span<const VkCommandBuffer, EngineSetting::MaxFrameInFlight> TriangleDrawCmd;
-		const VkCommandBuffer TriangleReshapeCmd;
+		const CommandBufferManager::InFlightCommandBufferArray TriangleDrawCmd;
+		const VulkanObject::CommandBuffer TriangleReshapeCmd;
 		/**
 		 * set 1
 		 * binding 0: fragment shader sampler

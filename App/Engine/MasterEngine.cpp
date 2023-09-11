@@ -396,24 +396,6 @@ namespace {
 		return make_pair(VKO::createSwapchainKHR(ctx.Device, swapchain_info), chosen_extent);
 	}
 
-	inline VKO::CommandPool createGlobalCommandPool(const VkDevice device, const uint32_t qf_idx) {
-		const VkCommandPoolCreateInfo cmd_pool_info {
-			.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-			.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-			.queueFamilyIndex = qf_idx
-		};
-		return VKO::createCommandPool(device, cmd_pool_info);
-	}
-
-	inline VKO::CommandPool createTransientCommandPool(const VkDevice device, const uint32_t qf_idx) {
-		const VkCommandPoolCreateInfo cmd_pool_info {
-			.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-			.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
-			.queueFamilyIndex = qf_idx
-		};
-		return VKO::createCommandPool(device, cmd_pool_info);
-	}
-
 	//Return three of such, two semaphores for rendering and presenting queue, and one for host-device barrier.
 	inline array<VKO::Semaphore, 3u> createSyncPrimitive(const VulkanContext& ctx) {
 		return {
@@ -452,9 +434,14 @@ MasterEngine::MasterEngine(GLFWwindow* const canvas, const Camera::CameraData& c
 
 		this->Context.Allocator = createGlobalVma(this->Context.Instance, this->Context.PhysicalDevice, this->Context.Device);
 		this->Context.CommandPool = {
-			.General = createGlobalCommandPool(this->Context.Device, context.RenderingQueueFamily),
-			.Transient = createTransientCommandPool(this->Context.Device, context.RenderingQueueFamily)
+			.Reshape = CommandBufferManager::createCommandPool(this->Context.Device, { }, context.RenderingQueueFamily),
+			.Transient = CommandBufferManager::createCommandPool(this->Context.Device,
+				VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, context.RenderingQueueFamily),
+			.General = CommandBufferManager::createCommandPool(this->Context.Device,
+				VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, context.RenderingQueueFamily)
 		};
+		generate(this->Context.CommandPool.InFlightCommandPool, [device = *this->Context.Device, qf = context.RenderingQueueFamily]()
+			{ return CommandBufferManager::createCommandPool(device, { }, qf); });
 
 		this->Context.Queue = {
 			.Render = render_queue,
@@ -573,6 +560,7 @@ void MasterEngine::reshape(GLFWwindow* const canvas) {
 
 		//delete old presentation context first in the correct order
 		this->SwapChain->reset();
+		CHECK_VULKAN_ERROR(vkResetCommandPool(this->Context.Device, this->Context.CommandPool.Reshape, { }));
 
 		//Then recreate all of them, swap chain extent will be updated when presentation is re-created.
 		this->createPresentation(canvas);
@@ -592,6 +580,9 @@ void MasterEngine::draw(const double delta_time) const {
 	 ***************************/
 	//wait for previous rendering on the same in-flight index to finish before starting the current
 	SemaphoreManager::wait<1u>(this->Context.Device, { }, {{{ wait_frame, frame_counter++ }}});
+	//it is cheaper to reset the command pool globally than issuing reset to individual command buffer
+	CHECK_VULKAN_ERROR(vkResetCommandPool(this->Context.Device,
+		this->Context.CommandPool.InFlightCommandPool[this->FrameInFlightIndex], { }));
 
 	this->SceneCamera->update(this->FrameInFlightIndex);
 
