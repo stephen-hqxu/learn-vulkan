@@ -436,7 +436,7 @@ void DrawTriangle::reshape(const ReshapeInfo& reshape_info) {
 }
 
 DrawTriangle::DrawResult DrawTriangle::draw(const DrawInfo& draw_info) {
-	const auto [ctx, camera, delta_time, frame_index, vp, draw_area, present_img, present_img_view] = draw_info;
+	const auto& [ctx, camera, delta_time, frame_index, vp, draw_area, present_img, present_img_view] = draw_info;
 
 	const VkCommandBuffer cmd = this->TriangleDrawCmd[frame_index];
 	CommandBufferManager::beginOneTimeSubmit(cmd);

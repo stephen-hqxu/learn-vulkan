@@ -4,6 +4,7 @@
 #include "../Common/ErrorHandler.hpp"
 #include "../Common/FixedArray.hpp"
 
+#include <glm/mat3x3.hpp>
 #include <glm/mat4x4.hpp>
 
 #include <glm/trigonometric.hpp>
@@ -29,7 +30,7 @@ namespace VKO = VulkanObject;
 
 struct Camera::PackedCameraBuffer {
 
-	mat4 V, PV;
+	mat4 V, PV, InvPVRot;
 	vec3 Pos;
 
 	float _pad0;
@@ -167,30 +168,40 @@ void Camera::update(const unsigned int index) {
 	const auto& [buffer, camera_memory] = this->ShaderBuffer[index];
 	const CameraData& ci = this->CameraInfo;
 
-	constexpr static size_t FlushCount = 3u;
+	constexpr static size_t FlushCount = 4u;
 	FixedArray<VkDeviceSize, FlushCount> offset, size;
+
+#define PUSH_OFFSET_SIZE(FIELD) \
+offset.pushBack(offsetof(PackedCameraBuffer, FIELD)); \
+size.pushBack(sizeof(PackedCameraBuffer::FIELD))
 
 	dmat4 view, projection;
 	if (dirty.Projection || dirty.View) {
 		view = lookAt(ci.Position, ci.Position + this->Front, this->Up);
 		projection = perspective(ci.FieldOfView, ci.Aspect, ci.Far, ci.Near);
-		camera_memory->PV = projection * view;
 		
-		offset.pushBack(offsetof(PackedCameraBuffer, PV));
-		size.pushBack(sizeof(PackedCameraBuffer::PV));
+		const dmat4 inv_projection = glm::inverse(projection),
+			view_rotation = dmat4(glm::dmat3(view)),
+			inv_view_rotation = glm::transpose(view_rotation);
+
+		camera_memory->PV = projection * view;
+		camera_memory->InvPVRot = inv_view_rotation;
+
+		PUSH_OFFSET_SIZE(PV);
+		PUSH_OFFSET_SIZE(InvPVRot);
 	}
 	if (dirty.View) {
 		camera_memory->V = view;
 
-		offset.pushBack(offsetof(PackedCameraBuffer, V));
-		size.pushBack(sizeof(PackedCameraBuffer::V));
+		PUSH_OFFSET_SIZE(V);
 	}
 	if (dirty.Position) {
 		camera_memory->Pos = ci.Position;
 
-		offset.pushBack(offsetof(PackedCameraBuffer, Pos));
-		size.pushBack(sizeof(PackedCameraBuffer::Pos));
+		PUSH_OFFSET_SIZE(Pos);
 	}
+
+#undef PUSH_OFFSET_SIZE
 
 	assert(offset.size() == size.size());
 	if (const bool require_flush = offset.size() > 0u;

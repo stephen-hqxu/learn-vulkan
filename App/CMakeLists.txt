@@ -45,6 +45,8 @@ add_executable(${LV_MAIN}
 	Engine/RendererInterface.hpp
 	Engine/VulkanContext.hpp
 	# Renderer/
+	Renderer/DrawSky.cpp
+	Renderer/DrawSky.hpp
 	Renderer/DrawTriangle.cpp
 	Renderer/DrawTriangle.hpp
 	Renderer/GeometryData.cpp
@@ -57,6 +59,8 @@ add_executable(${LV_MAIN}
 	Renderer/SimpleWater.hpp
 	# Shader/
 	Shader/CameraData.glsl
+	Shader/DrawSky.frag
+	Shader/DrawSky.vert
 	Shader/DrawTriangle.frag
 	Shader/DrawTriangle.vert
 	Shader/PlaneDisplacer.comp

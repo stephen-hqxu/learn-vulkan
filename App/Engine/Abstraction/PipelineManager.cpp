@@ -22,8 +22,16 @@ namespace {
 VKO::Pipeline PipelineManager::createSimpleGraphicsPipeline(const VkDevice device, const VkPipelineLayout layout,
 	const SimpleGraphicsPipelineCreateInfo& graphics_info) {
 	const auto& [shader_stage, vertex_input_state, rendering,
-		primitive_topo, cull_move, front_face, sample, min_sample_shading, blend_state, allow_feedback_loop] = graphics_info;
+		primitive_topo, cull_move, front_face, sample, min_sample_shading, depth, blend_state, allow_feedback_loop] = graphics_info;
+	const auto [depth_write, depth_compare] = depth;
 	const auto [colour_fbl, depth_fbl] = allow_feedback_loop;
+
+	/////////////////////
+	/// Vertex attribute
+	/////////////////////
+	constexpr static VkPipelineVertexInputStateCreateInfo attribute_less {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO
+	};
 
 	///////////////////////
 	/// Input assembly
@@ -75,11 +83,11 @@ VKO::Pipeline PipelineManager::createSimpleGraphicsPipeline(const VkDevice devic
 	////////////////////
 	/// Fragment test
 	///////////////////
-	constexpr static VkPipelineDepthStencilStateCreateInfo depth_stencil {
+	const VkPipelineDepthStencilStateCreateInfo depth_stencil {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
 		.depthTestEnable = VK_TRUE,
-		.depthWriteEnable = VK_TRUE,
-		.depthCompareOp = VK_COMPARE_OP_GREATER
+		.depthWriteEnable = depth_write ? VK_TRUE : VK_FALSE,
+		.depthCompareOp = static_cast<VkCompareOp>(depth_compare)
 	};
 
 	//////////////////////
@@ -121,7 +129,7 @@ VKO::Pipeline PipelineManager::createSimpleGraphicsPipeline(const VkDevice devic
 		.flags = pipeline_flag,
 		.stageCount = static_cast<uint32_t>(shader_stage.size()),
 		.pStages = shader_stage.data(),
-		.pVertexInputState = vertex_input_state,
+		.pVertexInputState = vertex_input_state ? vertex_input_state : &attribute_less,
 		.pInputAssemblyState = &input_assembly,
 		.pTessellationState = &tess,
 		.pViewportState = &vp,

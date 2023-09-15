@@ -232,13 +232,12 @@ SimpleWater::SimpleWater(const VulkanContext& ctx, const WaterCreateInfo& water_
 	Animator(0.0) {
 	{
 		const VKO::Semaphore sema = SemaphoreManager::createTimelineSemaphore(this->getDevice(), 0ull);
-		const VKO::CommandBufferArray cmd_array = VKO::allocateCommandBuffers(this->getDevice(), {
+		const VKO::CommandBuffer cmd = VKO::allocateCommandBuffer(this->getDevice(), {
 			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
 			.commandPool = ctx.CommandPool.Transient,
 			.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 			.commandBufferCount = 1u
 		});
-		const VkCommandBuffer cmd = cmd_array[0];
 		CommandBufferManager::beginOneTimeSubmit(cmd);
 
 		//////////////////////////
@@ -332,7 +331,7 @@ SimpleWater::SimpleWater(const VulkanContext& ctx, const WaterCreateInfo& water_
 		/////////////////////////
 		/// Create water texture
 		////////////////////////
-		const auto create_water_texture = [device = this->getDevice(), allocator = this->getAllocator(), cmd]
+		const auto create_water_texture = [device = this->getDevice(), allocator = this->getAllocator(), cmd = *cmd]
 			(const ImageManager::ImageReadResult& input, auto& output) -> void {
 			output.Image = ImageManager::createImageFromReadResult(cmd, input, {
 				device, allocator, ::WaterTextureMipMapCount,
@@ -576,7 +575,7 @@ void SimpleWater::reshape(const RendererInterface::ReshapeInfo& reshape_info) {
 
 RendererInterface::DrawResult SimpleWater::draw(const DrawInfo& draw_info) const {
 	const auto [inherited_draw_info, geometry, fbo_input, depth_layout] = draw_info;
-	const auto [ctx, camera, delta_time, frame_idx, vp, render_area, resolve_img, resolve_img_view] = *inherited_draw_info;
+	const auto& [ctx, camera, delta_time, frame_idx, vp, render_area, resolve_img, resolve_img_view] = *inherited_draw_info;
 
 	const VkCommandBuffer cmd = this->WaterCommand[frame_idx];
 	CommandBufferManager::beginOneTimeSubmitSecondary(cmd);
@@ -584,8 +583,8 @@ RendererInterface::DrawResult SimpleWater::draw(const DrawInfo& draw_info) const
 	/***********************
 	 * Subpass dependencies
 	 ***********************/
-	constexpr static FramebufferManager::PrepareFramebufferInfo prepare_info {
-		.DepthLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL
+	const FramebufferManager::PrepareFramebufferInfo prepare_info {
+		.DepthLayout = depth_layout
 	};
 	const FramebufferManager::SubpassOutputDependencyIssueInfo issue_info {
 		.PrepareInfo = &prepare_info,
@@ -602,6 +601,10 @@ RendererInterface::DrawResult SimpleWater::draw(const DrawInfo& draw_info) const
 		.RenderArea = render_area,
 		.ResolveOutput = {
 			.Colour = resolve_img_view
+		},
+		.RequiredAfterRendering = {
+			.Colour = false,
+			.Depth = false
 		}
 	});
 

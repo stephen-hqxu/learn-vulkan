@@ -283,14 +283,14 @@ SimpleTerrain::SimpleTerrain(const VulkanContext& ctx, const TerrainCreateInfo& 
 		constexpr static VkSamplerCreateInfo texture_sampler_info {
 			.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
 			.magFilter = VK_FILTER_LINEAR,
-			.minFilter = VK_FILTER_LINEAR,
+			.minFilter = VK_FILTER_NEAREST,
 			.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST,
 			.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
 			.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
 			.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
 			.maxLod = VK_LOD_CLAMP_NONE
 		};
-		this->TextureSampler = VKO::createSampler(this->getDevice(), texture_sampler_info);//:P
+		this->TextureSampler = VKO::createSampler(this->getDevice(), texture_sampler_info);
 
 		/*********************
 		 * Barrier
@@ -613,7 +613,7 @@ void SimpleTerrain::reshape(const ReshapeInfo& reshape_info) {
 }
 
 SimpleTerrain::DrawResult SimpleTerrain::draw(const DrawInfo& draw_info) {
-	const auto [ctx, camera, delta_time, frame_index, vp, draw_area, present_img, present_img_view] = draw_info;
+	const auto& [ctx, camera, delta_time, frame_index, vp, draw_area, present_img, present_img_view] = draw_info;
 	/*
 	If we need to render water, we do not need to render and resolve the terrain to present image straight away,
 	and pass the present image to water renderer, letting it finishes the rest.
@@ -660,6 +660,8 @@ SimpleTerrain::DrawResult SimpleTerrain::draw(const DrawInfo& draw_info) {
 		},
 		.RequiredAfterRendering = {
 			.Colour = draw_water,
+			//Although we just resolved depth to the water scene depth buffer,
+			//water renderer still needs to perform depth test on the original framebuffer
 			.Depth = draw_water
 		}
 	});

@@ -117,7 +117,6 @@ namespace LearnVulkan {
 		*/
 		struct DrawInfo {
 
-			//The present image is where multi-sampled input framebuffer will be resolved to.
 			const RendererInterface::DrawInfo* InheritedDrawInfo;
 			//The geometry data of the scene.
 			//Must be a compatible geometry as the scene acceleration structure

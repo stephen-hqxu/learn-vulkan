@@ -354,7 +354,7 @@ VKO::ImageAllocation ImageManager::createImageFromReadResult(const VkCommandBuff
 	ImageManager::recordCopyImageFromBuffer(cmd, pixel.second, image.second, {
 		.ImageExtent = extent_3d,
 		//copy start from the first level and layer, and span across all layers in the base level
-		.SubresourceLayers = ImageManager::createEachLayerSubresourceLayers(aspect, 0u, 0u)
+		.SubresourceLayers = ImageManager::createFullSubresourceLayers(aspect, 0u, layer)
 	});
 
 	return image;

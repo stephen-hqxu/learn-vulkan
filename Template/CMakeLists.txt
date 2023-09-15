@@ -2,7 +2,7 @@ include(DownloadResource)
 
 set(LV_TEXTURE_FILENAME "Texture-v1")
 downloadResource(
-	URL "https://github.com/stephen-hqxu/learn-vulkan/files/12522304/${LV_TEXTURE_FILENAME}.zip"
+	URL "https://github.com/stephen-hqxu/learn-vulkan/releases/download/r1/${LV_TEXTURE_FILENAME}.zip"
 	FILENAME ${LV_TEXTURE_FILENAME}
 	EXTENSION ".zip"
 	LOCATION LV_TEXTURE_DIR

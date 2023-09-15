@@ -10,15 +10,27 @@ namespace LearnVulkan {
 	namespace IndirectCommand {
 
 		/**
+		 * @brief vkCmdDrawIndirect
+		*/
+		struct VkDrawIndirectCommand {
+
+			uint32_t VertexCount,
+				InstanceCount,
+				FirstVertex,
+				FirstInstance;
+
+		};
+
+		/**
 		 * @brief vkCmdDrawIndexedIndirect
 		*/
 		struct VkDrawIndexedIndirectCommand {
 
-			uint32_t    IndexCount;
-			uint32_t    InstanceCount;
-			uint32_t    FirstIndex;
-			int32_t     VertexOffset;
-			uint32_t    FirstInstance;
+			uint32_t IndexCount,
+				InstanceCount,
+				FirstIndex;
+			int32_t VertexOffset;
+			uint32_t FirstInstance;
 
 		};
 
