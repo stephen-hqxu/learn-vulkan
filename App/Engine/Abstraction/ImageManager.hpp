@@ -47,6 +47,7 @@ namespace LearnVulkan {
 			VkDevice Device;
 			VmaAllocator Allocator;
 
+			VkImageCreateFlags Flag;
 			VkImageType ImageType;
 			VkFormat Format;
 			VkExtent3D Extent;
@@ -64,6 +65,7 @@ namespace LearnVulkan {
 			VkDevice Device;
 			VmaAllocator Allocator;
 
+			VkImageCreateFlags Flag;
 			uint32_t Level;
 			VkImageUsageFlags Usage;
 

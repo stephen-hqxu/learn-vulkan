@@ -161,11 +161,15 @@ DrawSky::DrawSky(const VulkanContext& ctx, const SkyCreateInfo& sky_info) :
 		 * Prepare cubemap texture
 		 **************************/
 		this->SkyBox.Image = ImageManager::createImageFromReadResult(cmd, *sky_info.Cubemap, {
-			this->getDevice(), ctx.Allocator, 1u,
-			VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_IMAGE_ASPECT_COLOR_BIT
+			.Device = this->getDevice(),
+			.Allocator = ctx.Allocator,
+			.Flag = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT,
+			.Level = 1u,
+			.Usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+			.Aspect = VK_IMAGE_ASPECT_COLOR_BIT
 		});
 		this->SkyBox.ImageView = ImageManager::createFullImageView({
-			this->getDevice(), this->SkyBox.Image.second, VK_IMAGE_VIEW_TYPE_2D,
+			this->getDevice(), this->SkyBox.Image.second, VK_IMAGE_VIEW_TYPE_CUBE,
 			sky_info.Cubemap->Format, VK_IMAGE_ASPECT_COLOR_BIT
 		});
 		this->SkyBox.Sampler = VKO::createSampler(this->getDevice(), {
@@ -225,6 +229,14 @@ DrawSky::DrawSky(const VulkanContext& ctx, const SkyCreateInfo& sky_info) :
 
 inline VkDevice DrawSky::getDevice() const noexcept {
 	return this->SkyIndirectCommand.second->get_deleter().Device;
+}
+
+VkDescriptorImageInfo DrawSky::skyImageDescriptor() const noexcept {
+	return {
+		.sampler = this->SkyBox.Sampler,
+		.imageView = this->SkyBox.ImageView,
+		.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+	};
 }
 
 RendererInterface::DrawResult DrawSky::draw(const DrawInfo& draw_info) const {

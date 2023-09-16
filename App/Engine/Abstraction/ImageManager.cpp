@@ -27,7 +27,7 @@ namespace VKO = VulkanObject;
 using ImageManager::ImageBitWidth, ImageManager::ImageColourSpace;
 
 #define EXPAND_IMAGE_READ_INFO const auto [channel, colour_space] = img_read_info
-#define EXPAND_IMAGE_INFO const auto [device, allocator, img_type, format, extent, level, layer, sample, usage, init_layout] = image_info
+#define EXPAND_IMAGE_INFO const auto [device, allocator, flag, img_type, format, extent, level, layer, sample, usage, init_layout] = image_info
 #define EXPAND_IV_INFO const auto [device, image, view_type, format, aspect] = iv_info
 
 namespace {
@@ -258,7 +258,7 @@ ImageManager::ImageReadResult ImageManager::readFile(const VkDevice device, cons
 
 	using std::as_const;
 	const auto index = iota(size_t { 0 }, filename.size());
-	std::ranges::for_each(index,
+	std::for_each(std::execution::par, index.begin(), index.end(),
 		[&filename = as_const(filename), buf = reinterpret_cast<uint8_t*>(data), channel, layer_size, &dimension](const auto i) {
 		//what a shame stb_image does not allow use of custom allocator or user-provided memory
 		//that can really save us from repeated allocation!
@@ -303,6 +303,7 @@ VKO::ImageAllocation ImageManager::createImage(const ImageCreateInfo& image_info
 
 	const VkImageCreateInfo img_info {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+		.flags = flag,
 		.imageType = img_type,
 		.format = format,
 		.extent = extent,
@@ -320,7 +321,7 @@ VKO::ImageAllocation ImageManager::createImage(const ImageCreateInfo& image_info
 VKO::ImageAllocation ImageManager::createImageFromReadResult(const VkCommandBuffer cmd, const ImageReadResult& read_result,
 	const ImageCreateFromReadResultInfo& image_read_result) {
 	const auto& [extent, format, layer, pixel] = read_result;
-	const auto [device, allocator, level, usage, aspect] = image_read_result;
+	const auto [device, allocator, flag, level, usage, aspect] = image_read_result;
 	const auto [w, h] = extent;
 	const VkExtent3D extent_3d = { w, h, 1u };
 
@@ -328,6 +329,7 @@ VKO::ImageAllocation ImageManager::createImageFromReadResult(const VkCommandBuff
 		.Device = device,
 		.Allocator = allocator,
 
+		.Flag = flag,
 		.ImageType = VK_IMAGE_TYPE_2D,
 		.Format = format,
 		.Extent = extent_3d,
@@ -336,7 +338,7 @@ VKO::ImageAllocation ImageManager::createImageFromReadResult(const VkCommandBuff
 		.Layer = layer,
 
 		.Usage = usage
-		});
+	});
 
 	//we copy to level 0
 	PipelineBarrier<0u, 0u, 1u> barrier;

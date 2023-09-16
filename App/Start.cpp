@@ -28,6 +28,7 @@
 
 #include <array>
 #include <string_view>
+#include <tuple>
 
 using glm::dvec2, glm::dvec3;
 using glm::radians;
@@ -178,6 +179,51 @@ namespace {
 			using ResourcePath::ResourceRoot;
 
 			const VulkanContext& ctx = engine.context();
+
+			////////////////////////
+			/// Load skybox texture
+			////////////////////////
+			bool draw_skybox;
+			switch (app_name) {
+			case Terrain:
+				[[fallthrough]];
+			case Water:
+				draw_skybox = true;
+				break;
+			default:
+				draw_skybox = false;
+				break;
+			}
+			constexpr static string_view SkyBoxRightFilename = "/OceanSky-Cubemap/right.png",
+				SkyBoxLeftFilename = "/OceanSky-Cubemap/left.png",
+				SkyBoxTopFilename = "/OceanSky-Cubemap/top.png",
+				SkyBoxBottomFilename = "/OceanSky-Cubemap/bottom.png",
+				SkyBoxFrontFilename = "/OceanSky-Cubemap/front.png",
+				SkyBoxBackFilename = "/OceanSky-Cubemap/back.png";
+			constexpr static auto SkyBoxAllFullPath = File::toAbsolutePath<ResourceRoot,
+				SkyBoxRightFilename,
+				SkyBoxLeftFilename,
+				SkyBoxTopFilename,
+				SkyBoxBottomFilename,
+				SkyBoxFrontFilename,
+				SkyBoxBackFilename
+			>();
+			constexpr static auto SkyBoxAllFullPathArray = std::apply(
+				[](const auto&... tup_elem) constexpr noexcept { return array { tup_elem.data()... }; },
+				SkyBoxAllFullPath
+			);
+
+			IM::ImageReadResult skybox_image;
+			if (draw_skybox) {
+				skybox_image = IM::readFile<IM::ImageBitWidth::Eight>(ctx.Device, ctx.Allocator, SkyBoxAllFullPathArray, {
+					.Channel = 4,
+					.ColourSpace = IM::ImageColourSpace::SRGB
+				});
+			}
+
+			//////////////////////////
+			/// Setup renderer
+			/////////////////////////
 			switch (app_name) {
 			case Triangle:
 			{
@@ -202,6 +248,7 @@ namespace {
 			//both terrain and water sample uses the same renderer
 			//in terrain renderer's case, we configure the terrain renderer to exclude water 
 			case Terrain:
+				[[fallthrough]];
 			case Water:
 			{
 				const bool draw_water = app_name == Water;
@@ -237,6 +284,9 @@ namespace {
 						TerrainNormalmapFullPathArray, normalmap_info);
 				
 				IM::ImageReadResult water_normalmap, water_distortion;
+				const SimpleTerrain::TerrainSkyCreateInfo terrain_sky_info {
+					.SkyBox = &skybox_image
+				};
 				SimpleTerrain::TerrainWaterCreateInfo terrain_water_info;
 				if (draw_water) {
 					water_normalmap = IM::readFile<IM::ImageBitWidth::Eight>(ctx.Device, ctx.Allocator,
@@ -252,6 +302,7 @@ namespace {
 
 				const SimpleTerrain::TerrainCreateInfo terrain_info {
 					.CameraDescriptorSetLayout = engine.camera().descriptorSetLayout(),
+					.SkyInfo = &terrain_sky_info,
 					.WaterInfo = draw_water ? &terrain_water_info : nullptr,
 					.Heightmap = &heightmap,
 					.Normalmap = &normalmap,

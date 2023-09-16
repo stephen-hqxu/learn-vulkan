@@ -15,7 +15,8 @@ layout(location = 0) out vec4 FragColour;
 
 //This scene should consist of exactly one plane geometry.
 layout(set = 1, binding = 1) uniform accelerationStructureEXT Scene;
-layout(set = 1, binding = 2) uniform sampler2D WaterTextureCollection[4];
+layout(set = 1, binding = 2) uniform samplerCube EnvironmentMap;
+layout(set = 1, binding = 3) uniform sampler2D WaterTextureCollection[4];
 
 #define INDEX_WATER_TEXTURE(IDX) WaterTextureCollection[IDX]
 #define SceneTexture INDEX_WATER_TEXTURE(0u)
@@ -50,7 +51,7 @@ vec4 findHitColour(const vec3 dir) {
 	rayQueryProceedEXT(query);
 	if (rayQueryGetIntersectionTypeEXT(query, true) != gl_RayQueryCommittedIntersectionTriangleEXT) {
 		//miss
-		return vec4(Water.SkyColour, maxRayTime);
+		return vec4(textureLod(EnvironmentMap, dir, 0.0f).rgb, maxRayTime);
 	}
 	//closest hit
 	const vec2 bary2 = rayQueryGetIntersectionBarycentricsEXT(query, true);

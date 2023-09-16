@@ -1,7 +1,6 @@
 #pragma once
 
 #include <array>
-#include <utility>
 #include <type_traits>
 #include <cassert>
 
@@ -71,9 +70,9 @@ namespace LearnVulkan {
 		}
 
 		//Similar to standard library container.
-		constexpr T& pushBack(T&& object) noexcept {
+		constexpr T& pushBack(const T& object) noexcept {
 			assert(this->Size < N);
-			return this->Array[this->Size++] = std::forward<T>(object);
+			return this->Array[this->Size++] = object;
 		}
 
 		/**

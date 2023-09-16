@@ -31,12 +31,11 @@
 #include <glm/common.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/vec2.hpp>
-#include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 #include <glm/mat3x4.hpp>
 #include <glm/mat4x4.hpp>
 
-using glm::uvec2, glm::vec2, glm::dvec2, glm::vec3, glm::vec4;
+using glm::uvec2, glm::vec2, glm::dvec2;
 using glm::mat4;
 
 using std::array, std::span, std::string_view;
@@ -52,7 +51,6 @@ namespace {
 	constexpr VkSampleCountFlagBits TerrainSampleCount = VK_SAMPLE_COUNT_4_BIT;
 	constexpr VkFormat ColourFormat = VK_FORMAT_R8G8B8A8_UNORM,
 		DepthFormat = VK_FORMAT_D32_SFLOAT;
-	constexpr auto TerrainSkyColour = vec4(vec3(13.5f, 62.2f, 158.5f) / 255.0f, 1.0f);
 
 	/*******************
 	 * Uniform
@@ -217,7 +215,18 @@ SimpleTerrain::SimpleTerrain(const VulkanContext& ctx, const TerrainCreateInfo& 
 	TerrainReshapeCmd(std::get<VKO::CommandBuffer>(
 		CommandBufferManager::allocateCommandBuffer(ctx, VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 			CommandBufferManager::CommandBufferType::Reshape)
-	)) {
+	)),
+	
+	SkyRenderer(ctx, DrawSky::SkyCreateInfo {
+		.CameraDescriptorSetLayout = terrain_info.CameraDescriptorSetLayout,
+		.OutputFormat = {
+			.ColourFormat = ::ColourFormat,
+			.DepthFormat = ::DepthFormat,
+			.Sample = ::TerrainSampleCount
+		},
+		.Cubemap = terrain_info.SkyInfo->SkyBox,
+		.DebugMessage = terrain_info.DebugMessage
+	}) {
 	//needs to ensure the plane generator survives until generation is complete
 	const auto plane_generator = PlaneGeometry(ctx, *terrain_info.DebugMessage);
 	const bool render_water = terrain_info.WaterInfo != nullptr;
@@ -265,10 +274,12 @@ SimpleTerrain::SimpleTerrain(const VulkanContext& ctx, const TerrainCreateInfo& 
 		 * Prepare terrain map
 		 **********************/
 		const ImageManager::ImageCreateFromReadResultInfo terrain_map_read_info {
-			this->getDevice(), this->getAllocator(),
+			.Device = this->getDevice(),
+			.Allocator = this->getAllocator(),
 			//it's just a heightmap and normalmap, we don't need mipmaps for this
-			1u,
-			VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_IMAGE_ASPECT_COLOR_BIT
+			.Level = 1u,
+			.Usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+			.Aspect = VK_IMAGE_ASPECT_COLOR_BIT
 		};
 
 		this->Heightmap.Image = ImageManager::createImageFromReadResult(copy_cmd, *terrain_info.Heightmap, terrain_map_read_info);
@@ -420,6 +431,7 @@ SimpleTerrain::SimpleTerrain(const VulkanContext& ctx, const TerrainCreateInfo& 
 				.Sample = ::TerrainSampleCount
 			},
 
+			.SkyRenderer = &this->SkyRenderer,
 			.PlaneGenerator = &plane_generator,
 			.SceneGAS = this->TerrainAccelStruct.AccelStruct,
 			.SceneTexture = {
@@ -432,7 +444,6 @@ SimpleTerrain::SimpleTerrain(const VulkanContext& ctx, const TerrainCreateInfo& 
 			.WaterDistortion = terrain_info.WaterInfo->WaterDistortion,
 
 			.ModelMatrix = &::TerrainUniformData.TerrainTransform.M,
-			.SkyColour = ::TerrainSkyColour,
 
 			.DebugMessage = terrain_info.DebugMessage
 		});
@@ -630,8 +641,7 @@ SimpleTerrain::DrawResult SimpleTerrain::draw(const DrawInfo& draw_info) {
 		.DepthLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL
 	};
 	const FramebufferManager::SubpassOutputDependencyIssueInfo issue_info {
-		.PrepareInfo = &prepare_info,
-		.ResolveOutput = draw_water ? VK_NULL_HANDLE : present_img
+		.PrepareInfo = &prepare_info
 	};
 	FramebufferManager::issueSubpassOutputDependency(cmd, this->OutputAttachment, issue_info);
 
@@ -652,17 +662,15 @@ SimpleTerrain::DrawResult SimpleTerrain::draw(const DrawInfo& draw_info) {
 	CONTEXT_DISABLE_MESSAGE(msg_id, *ctx, 0x5D1FD459);
 	FramebufferManager::beginInitialRendering(cmd, this->OutputAttachment, {
 		.DependencyInfo = &issue_info,
-		.ClearColour = ::TerrainSkyColour,
+		.ClearColour = glm::vec4(1.0f),
 		.RenderArea = draw_area,
 		.ResolveOutput = {
-			.Colour = draw_water ? VK_NULL_HANDLE : present_img_view,
 			.Depth = draw_water ? this->WaterRenderer->getSceneDepth() : VK_NULL_HANDLE
 		},
+		//sky renderer will always need to read from the current frame buffer
 		.RequiredAfterRendering = {
-			.Colour = draw_water,
-			//Although we just resolved depth to the water scene depth buffer,
-			//water renderer still needs to perform depth test on the original framebuffer
-			.Depth = draw_water
+			.Colour = true,
+			.Depth = true
 		}
 	});
 	CONTEXT_ENABLE_MESSAGE(*ctx, msg_id);
@@ -703,15 +711,16 @@ SimpleTerrain::DrawResult SimpleTerrain::draw(const DrawInfo& draw_info) {
 	vkCmdBindVertexBuffers(cmd, 0u, 1u, &vbo, &vertex_offset);
 	vkCmdBindIndexBuffer(cmd, vbo, index_offset, attr_info.Type.Index);
 
-	/********
-	 * Draw
-	 *******/
+	/****************
+	 * Draw terrain
+	 ***************/
 	vkCmdDrawIndexedIndirect(cmd, vbo, indirect_offset, 1u, 0u);
 	vkCmdEndRendering(cmd);
 
 	/**************
 	 * Draw water
 	 *************/
+	FixedArray<VkCommandBuffer, 2u> draw_cmd;
 	if (draw_water) {
 		this->WaterRenderer->endSceneDepthRecord(cmd, scene_depth_record_info);
 
@@ -723,12 +732,27 @@ SimpleTerrain::DrawResult SimpleTerrain::draw(const DrawInfo& draw_info) {
 		});
 		assert(water_wait_stage == VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
 
-		vkCmdExecuteCommands(cmd, 1u, &water_cmd);
+		draw_cmd.pushBack(water_cmd);
+	}
+
+	/***********
+	 * Draw sky
+	 ***********/
+	{
+		const auto [sky_cmd, sky_wait_stage] = this->SkyRenderer.draw({
+			.InheritedDrawInfo = &draw_info,
+			.InputFramebuffer = &this->OutputAttachment,
+			.DepthLayout = prepare_info.DepthLayout
+		});
+		assert(sky_wait_stage == VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+
+		draw_cmd.pushBack(sky_cmd);
 	}
 
 	/****************************
 	 * Prepare for presentation
 	 ***************************/
+	vkCmdExecuteCommands(cmd, static_cast<uint32_t>(draw_cmd.size()), draw_cmd.data());
 	FramebufferManager::transitionAttachmentToPresent(cmd, present_img);
 
 	CHECK_VULKAN_ERROR(vkEndCommandBuffer(cmd));

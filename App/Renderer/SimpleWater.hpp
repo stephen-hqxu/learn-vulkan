@@ -1,5 +1,6 @@
 #pragma once
 
+#include "DrawSky.hpp"
 #include "GeometryData.hpp"
 #include "PlaneGeometry.hpp"
 
@@ -15,7 +16,6 @@
 
 #include "../Common/VulkanObject.hpp"
 
-#include <glm/vec3.hpp>
 #include <glm/mat4x4.hpp>
 
 #include <ostream>
@@ -53,6 +53,7 @@ namespace LearnVulkan {
 			VkDescriptorSetLayout CameraDescriptorSetLayout;
 			DrawFormat OutputFormat;
 
+			const DrawSky* SkyRenderer;
 			const PlaneGeometry* PlaneGenerator;/**< Provide an existing plane geometry generator to avoid rebuilding the pipeline. */
 			/**
 			 * @brief The geometry acceleration structure (a.k.a., BLAS) of the scene.
@@ -66,7 +67,6 @@ namespace LearnVulkan {
 			const ImageManager::ImageReadResult* WaterNormalmap, *WaterDistortion;
 
 			const glm::mat4* ModelMatrix;
-			glm::vec3 SkyColour;
 
 			std::ostream* DebugMessage;
 
@@ -124,8 +124,7 @@ namespace LearnVulkan {
 			const GeometryData* SceneGeometry;
 
 			//This is the framebuffer to be rendered onto.
-			//Note that water should be drawn at the end of the rendering loop,
-			//since content in this framebuffer after water renderer becomes undefined.
+			//Content in this framebuffer will be preserved after water renderer finishes.
 			const FramebufferManager::SimpleFramebuffer* InputFramebuffer;
 			VkImageLayout DepthLayout;
 

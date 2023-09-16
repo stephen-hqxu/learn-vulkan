@@ -104,6 +104,12 @@ namespace LearnVulkan {
 		~DrawSky() = default;
 
 		/**
+		 * @brief Get the descriptor data of sky image.
+		 * @return The sky image descriptor.
+		*/
+		VkDescriptorImageInfo skyImageDescriptor() const noexcept;
+
+		/**
 		 * @brief Draw sky.
 		 * @param draw_info Draw information.
 		 * @return The draw result.

@@ -323,8 +323,11 @@ DrawTriangle::DrawTriangle(const VulkanContext& ctx, const TriangleCreateInfo& t
 		 * Setup texture data
 		 ************************/
 		this->Texture.Image = ImageManager::createImageFromReadResult(copy_cmd, *triangle_info.SurfaceTexture, {
-			this->getDevice(), this->getAllocator(), TextureMipMapLevel,
-			VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_IMAGE_ASPECT_COLOR_BIT
+			.Device = this->getDevice(),
+			.Allocator = this->getAllocator(),
+			.Level = TextureMipMapLevel,
+			.Usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+			.Aspect = VK_IMAGE_ASPECT_COLOR_BIT
 		});
 		this->Texture.ImageView = ImageManager::createFullImageView({
 			this->getDevice(), this->Texture.Image.second, VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT

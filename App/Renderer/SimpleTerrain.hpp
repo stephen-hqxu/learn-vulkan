@@ -1,5 +1,6 @@
 #pragma once
 
+#include "DrawSky.hpp"
 #include "SimpleWater.hpp"
 #include "GeometryData.hpp"
 
@@ -62,6 +63,7 @@ namespace LearnVulkan {
 
 		//The following fields are used by water renderer and are hence optional.
 		AccelStructManager::AccelStruct TerrainAccelStruct;
+		DrawSky SkyRenderer;
 		std::optional<SimpleWater> WaterRenderer;
 
 		VkDevice getDevice() const noexcept;
@@ -80,6 +82,15 @@ namespace LearnVulkan {
 	public:
 
 		/**
+		 * @brief Information to create a sky renderer.
+		*/
+		struct TerrainSkyCreateInfo {
+
+			const ImageManager::ImageReadResult* SkyBox;
+
+		};
+
+		/**
 		 * @brief Information to create a water renderer.
 		*/
 		struct TerrainWaterCreateInfo {
@@ -95,6 +106,7 @@ namespace LearnVulkan {
 		
 			VkDescriptorSetLayout CameraDescriptorSetLayout;
 
+			const TerrainSkyCreateInfo* SkyInfo;
 			/**
 			 * @brief Set to null to disable water rendering.
 			 * Require support for acceleration structure and ray query.

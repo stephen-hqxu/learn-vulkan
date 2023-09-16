@@ -185,7 +185,7 @@ size.pushBack(sizeof(PackedCameraBuffer::FIELD))
 			inv_view_rotation = glm::transpose(view_rotation);
 
 		camera_memory->PV = projection * view;
-		camera_memory->InvPVRot = inv_view_rotation;
+		camera_memory->InvPVRot = inv_view_rotation * inv_projection;
 
 		PUSH_OFFSET_SIZE(PV);
 		PUSH_OFFSET_SIZE(InvPVRot);

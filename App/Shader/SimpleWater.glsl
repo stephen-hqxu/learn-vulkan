@@ -10,13 +10,9 @@
 layout(std430, set = 1, binding = 0) readonly restrict buffer WaterData {
 	mat4 Model;
 
-	vec3 SkyColour;
-	float IoR;
-
 	vec3 WaterTint;
-	float DepthOfInvisibility;
-	
-	float FresnelScale, AltitudeOffset, TransparencyDepth, NormalScale, NormalStrength, DistortionStrength;
+	float IoR, DepthOfInvisibility,
+		FresnelScale, AltitudeOffset, TransparencyDepth, NormalScale, NormalStrength, DistortionStrength;
 } Water;
 
 #endif//_SIMPLE_WATER_GLSL_

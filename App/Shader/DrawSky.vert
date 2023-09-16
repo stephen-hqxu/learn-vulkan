@@ -26,7 +26,7 @@ void main() {
 	When the scene has no geometry drawn, the depth in the attachment will be the initial value (0.0f),
 	and we shall let depth test pass for sky pixels, therefore depth test needs to have compare mode set to equal.
 	*/
-	const vec4 inf_quad = vec4(QuadVertex[gl_VertexIndex], 0.0f, 0.0f);
+	const vec4 inf_quad = vec4(QuadVertex[gl_VertexIndex], 0.0f, 1.0f);
 	RayDirection = (Camera.InvProjectionViewRotation * inf_quad).xyz;
 
 	gl_Position = inf_quad;

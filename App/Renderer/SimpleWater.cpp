@@ -18,6 +18,7 @@
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
 #include <glm/mat3x4.hpp>
 
 #include <array>
@@ -48,11 +49,10 @@ namespace {
 	struct WaterData {
 
 		mat4 M;
-		vec3 Sky;
-		float IoR = 1.0f / 1.333f;
 
-		vec3 Tint = vec3(0.5f, 0.5f, 15.5f) / 255.0f;
-		float DoI = 158.8f,
+		vec3 Tint = vec3(0.05f, 0.25f, 0.55f);
+		float IoR = 1.0f / 1.333f,
+			DoI = 158.8f,
 			FS = 0.5f,
 			AltOs = 278.5f,
 			TD = 15.5f,
@@ -99,11 +99,12 @@ namespace {
 	}
 
 	VKO::DescriptorSetLayout createWaterDescriptorSetLayout(const VkDevice device) {
-		constexpr static size_t BindingCount = 3u;
+		constexpr static size_t BindingCount = 4u;
 		using WaterDSInfoEntry = tuple<VkDescriptorType, VkShaderStageFlags>;
 		constexpr static auto water_ds_info = array<WaterDSInfoEntry, BindingCount> {
 			tuple { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT },
 			tuple { VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, VK_SHADER_STAGE_FRAGMENT_BIT },
+			tuple { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT },
 			tuple { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT }
 		};
 
@@ -119,7 +120,7 @@ namespace {
 			};
 		});
 		//texture samplers in fragment shader are arranged in an array
-		water_binding[2].descriptorCount = 4u;
+		water_binding[3].descriptorCount = 4u;
 
 		return VKO::createDescriptorSetLayout(device, {
 			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
@@ -265,8 +266,7 @@ SimpleWater::SimpleWater(const VulkanContext& ctx, const WaterCreateInfo& water_
 
 		VKO::MappedAllocation water_data = VKO::mapAllocation<::WaterData>(this->getAllocator(), water_data_staging.first);
 		*water_data = {
-			.M = *water_info.ModelMatrix,
-			.Sky = water_info.SkyColour
+			.M = *water_info.ModelMatrix
 		};
 
 		BufferManager::recordCopyBuffer(water_data_staging.second, this->UniformBuffer.second, cmd, sizeof(::WaterData));
@@ -334,9 +334,11 @@ SimpleWater::SimpleWater(const VulkanContext& ctx, const WaterCreateInfo& water_
 		const auto create_water_texture = [device = this->getDevice(), allocator = this->getAllocator(), cmd = *cmd]
 			(const ImageManager::ImageReadResult& input, auto& output) -> void {
 			output.Image = ImageManager::createImageFromReadResult(cmd, input, {
-				device, allocator, ::WaterTextureMipMapCount,
-				VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-				VK_IMAGE_ASPECT_COLOR_BIT
+				.Device = device,
+				.Allocator = allocator,
+				.Level = ::WaterTextureMipMapCount,
+				.Usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+				.Aspect = VK_IMAGE_ASPECT_COLOR_BIT
 			});
 			output.ImageView = ImageManager::createFullImageView({
 				device, output.Image.second,
@@ -441,11 +443,13 @@ SimpleWater::SimpleWater(const VulkanContext& ctx, const WaterCreateInfo& water_
 		const DU water_ds_updater = this->WaterShaderDescriptorBuffer.createUpdater(ctx);
 
 		//we update those non-array bindings first
-		const auto water_ds_get = array<DU::DescriptorGetInfo, 2u> {{
+		const VkDescriptorImageInfo env_map_info = water_info.SkyRenderer->skyImageDescriptor();
+		const auto water_ds_get = array<DU::DescriptorGetInfo, 3u> {{
 			{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, { .pStorageBuffer = &water_data_addr } },
 			{ VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, {
 				.accelerationStructure = AccelStructManager::addressOf(this->getDevice(), this->SceneAccelStruct.AccelStruct) 
-			}}
+			}},
+			{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, { .pCombinedImageSampler = &env_map_info } }
 		}};
 		for (const auto i : iota(0u, water_ds_get.size())) {
 			water_ds_updater.update({
@@ -473,7 +477,7 @@ SimpleWater::SimpleWater(const VulkanContext& ctx, const WaterCreateInfo& water_
 			water_ds_updater.update({
 				.SetLayout = this->WaterShaderLayout,
 				.SetIndex = 0u,
-				.Binding = 2u,
+				.Binding = 3u,
 				.ArrayLayer = i,
 				.GetInfo = water_sampler_ds_get[i]
 			});
@@ -564,7 +568,7 @@ void SimpleWater::reshape(const RendererInterface::ReshapeInfo& reshape_info) {
 	updater.update({
 		.SetLayout = this->WaterShaderLayout,
 		.SetIndex = 0u,
-		.Binding = 2u,
+		.Binding = 3u,
 		.ArrayLayer = 3u,
 		.GetInfo = {
 			.Type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -587,8 +591,7 @@ RendererInterface::DrawResult SimpleWater::draw(const DrawInfo& draw_info) const
 		.DepthLayout = depth_layout
 	};
 	const FramebufferManager::SubpassOutputDependencyIssueInfo issue_info {
-		.PrepareInfo = &prepare_info,
-		.ResolveOutput = resolve_img
+		.PrepareInfo = &prepare_info
 	};
 	FramebufferManager::issueSubpassOutputDependency(cmd, *fbo_input, issue_info);
 
@@ -598,14 +601,7 @@ RendererInterface::DrawResult SimpleWater::draw(const DrawInfo& draw_info) const
 	//we will draw on the existing input framebuffer, so no need to clear
 	FramebufferManager::beginInitialRendering(cmd, *fbo_input, {
 		.DependencyInfo = &issue_info,
-		.RenderArea = render_area,
-		.ResolveOutput = {
-			.Colour = resolve_img_view
-		},
-		.RequiredAfterRendering = {
-			.Colour = false,
-			.Depth = false
-		}
+		.RenderArea = render_area
 	});
 
 	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, this->Pipeline);
