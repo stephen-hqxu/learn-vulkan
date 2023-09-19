@@ -15,9 +15,11 @@ namespace LearnVulkan {
 		constexpr inline std::string_view ShaderRoot = "${LV_SHADER_ROOT}";
 
 		/**
-		 * @brief Where assets such as texture reside.
+		 * @brief Where assets for different purposes reside.
 		*/
-		constexpr inline std::string_view ResourceRoot = "${LV_RESOURCE_ROOT}";
+		constexpr inline std::string_view GeneralResourceRoot = "${LV_GENERAL_RESOURCE_ROOT}",
+			HeightfieldResourceRoot = "${LV_HEIGHTFIELD_RESOURCE_ROOT}",
+			SkyCubeMapResourceRoot = "${LV_SKY_CUBEMAP_RESOURCE_ROOT}";
 
 	}
 

@@ -121,13 +121,12 @@ namespace {
 	}
 
 	inline VKO::DescriptorSetLayout createTerrainDescriptorSetLayout(const VkDevice device) {
-		constexpr static size_t BindingCount = 5u;
+		constexpr static size_t BindingCount = 4u;
 		constexpr static auto terrain_ds_info = array<tuple<VkDescriptorType, VkShaderStageFlags>, BindingCount> {
 			tuple { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT },
 			tuple { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT },
 			tuple { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT },
-			tuple { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT },
-			tuple { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT }
+			tuple { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT | VK_SHADER_STAGE_FRAGMENT_BIT },
 		};
 
 		array<VkDescriptorSetLayoutBinding, BindingCount> terrain_binding;
@@ -281,15 +280,31 @@ SimpleTerrain::SimpleTerrain(const VulkanContext& ctx, const TerrainCreateInfo& 
 			.Usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
 			.Aspect = VK_IMAGE_ASPECT_COLOR_BIT
 		};
-
-		this->Heightmap.Image = ImageManager::createImageFromReadResult(copy_cmd, *terrain_info.Heightmap, terrain_map_read_info);
-		this->Heightmap.ImageView = ImageManager::createFullImageView({
-			this->getDevice(), this->Heightmap.Image.second, VK_IMAGE_VIEW_TYPE_2D, terrain_info.Heightmap->Format, VK_IMAGE_ASPECT_COLOR_BIT
-		});
-		this->Normalmap.Image = ImageManager::createImageFromReadResult(copy_cmd, *terrain_info.Normalmap, terrain_map_read_info);
-		this->Normalmap.ImageView = ImageManager::createFullImageView({
-			this->getDevice(), this->Normalmap.Image.second, VK_IMAGE_VIEW_TYPE_2D, terrain_info.Normalmap->Format, VK_IMAGE_ASPECT_COLOR_BIT
-		});
+		this->Heightfield.Image = ImageManager::createImageFromReadResult(copy_cmd, *terrain_info.Heightfield, terrain_map_read_info);
+		
+		ImageManager::ImageViewCreateInfo heightfield_img_view_info {
+			.Device = this->getDevice(),
+			.Image = this->Heightfield.Image.second,
+			.ViewType = VK_IMAGE_VIEW_TYPE_2D,
+			.Format = terrain_info.Heightfield->Format,
+			.Aspect = VK_IMAGE_ASPECT_COLOR_BIT
+		};
+		this->Heightfield.FullView = ImageManager::createFullImageView(heightfield_img_view_info);
+		heightfield_img_view_info.ComponentMapping = {
+			//alpha channel is where our displacement info is stored
+			VK_COMPONENT_SWIZZLE_A,
+			VK_COMPONENT_SWIZZLE_ZERO,
+			VK_COMPONENT_SWIZZLE_ZERO,
+			VK_COMPONENT_SWIZZLE_ONE
+		};
+		this->Heightfield.DisplacementSwizzleView = ImageManager::createFullImageView(heightfield_img_view_info);
+		heightfield_img_view_info.ComponentMapping = {
+			VK_COMPONENT_SWIZZLE_IDENTITY,
+			VK_COMPONENT_SWIZZLE_IDENTITY,
+			VK_COMPONENT_SWIZZLE_IDENTITY,
+			VK_COMPONENT_SWIZZLE_ONE
+		};
+		this->Heightfield.NormalOnlyView = ImageManager::createFullImageView(heightfield_img_view_info);
 
 		constexpr static VkSamplerCreateInfo texture_sampler_info {
 			.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
@@ -301,12 +316,12 @@ SimpleTerrain::SimpleTerrain(const VulkanContext& ctx, const TerrainCreateInfo& 
 			.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
 			.maxLod = VK_LOD_CLAMP_NONE
 		};
-		this->TextureSampler = VKO::createSampler(this->getDevice(), texture_sampler_info);
+		this->Heightfield.Sampler = VKO::createSampler(this->getDevice(), texture_sampler_info);
 
 		/*********************
 		 * Barrier
 		 ********************/
-		PipelineBarrier<0u, 1u, 2u> barrier;
+		PipelineBarrier<0u, 1u, 1u> barrier;
 		//uniform data
 		barrier.addBufferBarrier({
 			VK_PIPELINE_STAGE_2_COPY_BIT,
@@ -319,29 +334,20 @@ SimpleTerrain::SimpleTerrain(const VulkanContext& ctx, const TerrainCreateInfo& 
 		}, this->UniformBuffer.second);
 		
 		const VkImageSubresourceRange full_image = ImageManager::createFullSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT);
-		//heightmap
+		//heightfield
 		barrier.addImageBarrier({
 			VK_PIPELINE_STAGE_2_COPY_BIT,
 			VK_ACCESS_2_TRANSFER_WRITE_BIT,
 			//we will be using heightmap when displacing the plane later
 			//EBI: optionally include displacement stage and access flags only when we need to perform a displacement computation
-			VK_PIPELINE_STAGE_2_TESSELLATION_EVALUATION_SHADER_BIT | PlaneGeometry::DisplacementStage,
-			VK_ACCESS_2_SHADER_SAMPLED_READ_BIT | PlaneGeometry::DisplacementAccess
+			VK_PIPELINE_STAGE_2_TESSELLATION_EVALUATION_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT
+				| PlaneGeometry::DisplacementStage | SimpleWater::WaterCreateInfo::TextureStage,
+			VK_ACCESS_2_SHADER_SAMPLED_READ_BIT
+				| PlaneGeometry::DisplacementAccess | SimpleWater::WaterCreateInfo::TextureAccess
 		}, {
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-		}, this->Heightmap.Image.second, full_image);
-		//normalmap
-		barrier.addImageBarrier({
-			VK_PIPELINE_STAGE_2_COPY_BIT,
-			VK_ACCESS_2_TRANSFER_WRITE_BIT,
-			//EBI: similar to the barrier in heightmap, include such flags only when we need to render water
-			VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT | SimpleWater::WaterCreateInfo::TextureStage,
-			VK_ACCESS_2_SHADER_SAMPLED_READ_BIT | SimpleWater::WaterCreateInfo::TextureAccess
-		}, {
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-		}, this->Normalmap.Image.second, full_image);
+		}, this->Heightfield.Image.second, full_image);
 		barrier.record(copy_cmd);
 
 		/****************************
@@ -382,8 +388,8 @@ SimpleTerrain::SimpleTerrain(const VulkanContext& ctx, const TerrainCreateInfo& 
 				const VkCommandBuffer disp_cmd = plane_generator.displace(ctx, {
 					.Altitude = ::TerrainUniformData.DisplacementSetting.Alt,
 					.DisplacementMap = {
-						.sampler = this->TextureSampler,
-						.imageView = this->Heightmap.ImageView,
+						.sampler = this->Heightfield.Sampler,
+						.imageView = this->Heightfield.DisplacementSwizzleView,
 						.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 					}
 				}, this->AccelStructPlane);
@@ -435,8 +441,8 @@ SimpleTerrain::SimpleTerrain(const VulkanContext& ctx, const TerrainCreateInfo& 
 			.PlaneGenerator = &plane_generator,
 			.SceneGAS = this->TerrainAccelStruct.AccelStruct,
 			.SceneTexture = {
-				.sampler = this->TextureSampler,
-				.imageView = this->Normalmap.ImageView,
+				.sampler = this->Heightfield.Sampler,
+				.imageView = this->Heightfield.NormalOnlyView,
 				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			},
 
@@ -453,15 +459,14 @@ SimpleTerrain::SimpleTerrain(const VulkanContext& ctx, const TerrainCreateInfo& 
 		this->TerrainShaderDescriptorBuffer = DescriptorBufferManager(ctx, terrain_ds_layout,
 			VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT | VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT);
 
-		const auto map_view = array { *this->Heightmap.ImageView, *this->Normalmap.ImageView };
-		array<VkDescriptorImageInfo, 2u> map_ds;
-		transform(map_view, map_ds.begin(), [sampler = *this->TextureSampler](const VkImageView v) {
-			return VkDescriptorImageInfo {
-				.sampler = sampler,
-				.imageView = v,
+		const auto map_ds = array {
+			VkDescriptorImageInfo {
+				.sampler = this->Heightfield.Sampler,
+				.imageView = this->Heightfield.FullView,
 				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-			};
-		});
+			}
+		};
+
 		const VkDeviceAddress uniform_addr = BufferManager::addressOf(this->getDevice(), this->UniformBuffer.second);
 		const std::initializer_list<tuple<VkDeviceAddress, VkDeviceSize>> terrain_uniform {
 			{ uniform_addr + offsetof(::TerrainUniform, TerrainTransform), sizeof(::TerrainUniform::TerrainTransform) },

@@ -169,8 +169,11 @@ DrawSky::DrawSky(const VulkanContext& ctx, const SkyCreateInfo& sky_info) :
 			.Aspect = VK_IMAGE_ASPECT_COLOR_BIT
 		});
 		this->SkyBox.ImageView = ImageManager::createFullImageView({
-			this->getDevice(), this->SkyBox.Image.second, VK_IMAGE_VIEW_TYPE_CUBE,
-			sky_info.Cubemap->Format, VK_IMAGE_ASPECT_COLOR_BIT
+			.Device = this->getDevice(),
+			.Image = this->SkyBox.Image.second,
+			.ViewType = VK_IMAGE_VIEW_TYPE_CUBE,
+			.Format = sky_info.Cubemap->Format,
+			.Aspect = VK_IMAGE_ASPECT_COLOR_BIT
 		});
 		this->SkyBox.Sampler = VKO::createSampler(this->getDevice(), {
 			.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,

@@ -16,7 +16,7 @@ layout(std430, set = 1, binding = 2) restrict readonly buffer DisplacementSettin
 	float Altitude;
 };
 
-layout(set = 1, binding = 3) uniform sampler2D Heightmap;
+layout(set = 1, binding = 3) uniform sampler2D Heightfield;
 
 vec2 toCartesian2D(const vec2 v1, const vec2 v2, const vec2 v3){
 	return vec2(gl_TessCoord.x) * v1 + vec2(gl_TessCoord.y) * v2 + vec2(gl_TessCoord.z) * v3;
@@ -33,7 +33,7 @@ void main() {
 
 	//our plane is always pointing upwards
 	//displace the terrain, moving the vertices upward
-	gl_Position.y += textureLod(Heightmap, tee_out.UV, 0.0f).r * Altitude;
+	gl_Position.y += textureLod(Heightfield, tee_out.UV, 0.0f).a * Altitude;
 
 	gl_Position = Camera.ProjectionView * gl_Position;
 }

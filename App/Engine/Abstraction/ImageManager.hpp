@@ -137,6 +137,13 @@ namespace LearnVulkan {
 			VkImageViewType ViewType;
 			VkFormat Format;
 
+			VkComponentMapping ComponentMapping = {
+				VK_COMPONENT_SWIZZLE_IDENTITY,
+				VK_COMPONENT_SWIZZLE_IDENTITY,
+				VK_COMPONENT_SWIZZLE_IDENTITY,
+				VK_COMPONENT_SWIZZLE_IDENTITY
+			};
+
 			VkImageAspectFlags Aspect;
 		
 		};

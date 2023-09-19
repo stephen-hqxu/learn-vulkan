@@ -1,20 +1,25 @@
 include(DownloadResource)
 
-set(LV_TEXTURE_FILENAME "Texture-v1")
-downloadResource(
-	URL "https://github.com/stephen-hqxu/learn-vulkan/releases/download/r1/${LV_TEXTURE_FILENAME}.zip"
-	FILENAME ${LV_TEXTURE_FILENAME}
-	EXTENSION ".zip"
-	LOCATION LV_TEXTURE_DIR
-	EXTRACT
-)
+function(downloadAssetResource ReleaseTagName Filename DownloadedLocation)
+	downloadResource(
+		URL "https://github.com/stephen-hqxu/learn-vulkan/releases/download/${ReleaseTagName}/${Filename}.tar.gz"
+		FILENAME ${Filename}
+		EXTENSION ".tar.gz"
+		LOCATION ${DownloadedLocation}
+		EXTRACT
+	)
+	set(${DownloadedLocation} ${${DownloadedLocation}} PARENT_SCOPE)
+endfunction()
+
+downloadAssetResource("r2" "GeneralAsset-r2" LV_GENERAL_RESOURCE_ROOT)
+downloadAssetResource("r2" "Heightfield-Texture-Sample-r2" LV_HEIGHTFIELD_RESOURCE_ROOT)
+downloadAssetResource("r2" "SkyCubeMap-r2" LV_SKY_CUBEMAP_RESOURCE_ROOT)
 
 ##########################
 ### Generate config file
 ##########################
 set(LV_TEMPLATE_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/TemplateInclude")
 set(LV_SHADER_ROOT "${CMAKE_SOURCE_DIR}/${LV_MAIN}/Shader")
-set(LV_RESOURCE_ROOT "${LV_TEXTURE_DIR}/Texture")
 
 function(generateTemplateConfig OutputFilename)
 	configure_file(

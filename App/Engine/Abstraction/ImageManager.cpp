@@ -28,7 +28,7 @@ using ImageManager::ImageBitWidth, ImageManager::ImageColourSpace;
 
 #define EXPAND_IMAGE_READ_INFO const auto [channel, colour_space] = img_read_info
 #define EXPAND_IMAGE_INFO const auto [device, allocator, flag, img_type, format, extent, level, layer, sample, usage, init_layout] = image_info
-#define EXPAND_IV_INFO const auto [device, image, view_type, format, aspect] = iv_info
+#define EXPAND_IV_INFO const auto [device, image, view_type, format, component_mapping, aspect] = iv_info
 
 namespace {
 
@@ -186,12 +186,7 @@ using HandleFormat = StbImageData<PixelFormat>
 			.image = image,
 			.viewType = view_type,
 			.format = format,
-			.components = {
-				VK_COMPONENT_SWIZZLE_IDENTITY,
-				VK_COMPONENT_SWIZZLE_IDENTITY,
-				VK_COMPONENT_SWIZZLE_IDENTITY,
-				VK_COMPONENT_SWIZZLE_IDENTITY
-			},
+			.components = component_mapping,
 			.subresourceRange = sub_res
 		};
 	}

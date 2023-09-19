@@ -36,13 +36,13 @@ namespace LearnVulkan {
 
 		GeometryData Plane, AccelStructPlane;
 		const VulkanObject::BufferAllocation UniformBuffer;
-		VulkanObject::Sampler TextureSampler;
 		struct {
 
 			VulkanObject::ImageAllocation Image;
-			VulkanObject::ImageView ImageView;
+			VulkanObject::ImageView FullView, DisplacementSwizzleView, NormalOnlyView;
+			VulkanObject::Sampler Sampler;
 
-		} Heightmap, Normalmap;
+		} Heightfield;
 
 		const VulkanObject::DescriptorSetLayout TerrainShaderLayout;
 
@@ -56,8 +56,7 @@ namespace LearnVulkan {
 		 * binding 0: vertex SSBO
 		 * binding 1: tessellation control SSBO
 		 * binding 2: tessellation evaluation SSBO
-		 * binding 3: heightmap
-		 * binding 4: normalmap
+		 * binding 3: heightfield
 		*/
 		DescriptorBufferManager TerrainShaderDescriptorBuffer;
 
@@ -112,7 +111,8 @@ namespace LearnVulkan {
 			 * Require support for acceleration structure and ray query.
 			*/
 			const TerrainWaterCreateInfo* WaterInfo = nullptr;
-			const ImageManager::ImageReadResult* Heightmap, *Normalmap;
+			//The heightfield should contains RGB as normalmap and A as displacementmap.
+			const ImageManager::ImageReadResult* Heightfield;
 			std::ostream* DebugMessage;
 
 		};

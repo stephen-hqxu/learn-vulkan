@@ -28,7 +28,7 @@ The application contains a number of samples, each of them explores different as
 
 :warning: Even though attempts are made to ensure a reasonable code readability and performance, please be alerted that the code is still boilerplate. It is only intended for education purposes and should **NOT** be used as a best-practice guideline in production-ready application.
 
-### DrawTrangle
+### DrawTriangle
 
 **Keywords** Vulkan basics, mip-map generation, descriptor buffer, instancing, dynamic rendering, push constant
 
@@ -44,7 +44,7 @@ The sample draws multiple instances of quads lined up as a spiral staircase.
 
 This sample aims to test how Vulkan performs when comes to terrain rendering, which is one of my favourite topic. The terrain heightmap, normalmap images and some shader code are generated and copy-pasted from one of [my procedural generation project](https://github.com/stephen-hqxu/superterrainplus).
 
-![simple-terrain](https://user-images.githubusercontent.com/77457215/265590996-75e4de5d-bbf5-4687-b6e4-2ec42c632a5f.png)
+![simple-terrain](https://user-images.githubusercontent.com/77457215/268442372-d91364d7-7f25-420b-8c2f-60f4e5e8b2be.png)
 
 ### SimpleWater
 
@@ -54,7 +54,7 @@ I have had a very hard time getting photorealistic water dynamically rendered in
 
 Ray query is used to find the closest hit positions of reflection and refraction ray in fragment shader, and use them to find reflection and refraction colours for water surface shading. The sample might be inefficient due to large section of divergence (ray tracing pipeline should be better-suited), but it works good enough for now.
 
-![simple-water](https://user-images.githubusercontent.com/77457215/265591021-5662b853-f02e-4c39-a149-62386d958bff.png)
+![simple-water](https://user-images.githubusercontent.com/77457215/268442380-6e778977-2491-47b5-8d82-7e12d62a502d.png)
 
 ## Build Instruction
 

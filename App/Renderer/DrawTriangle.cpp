@@ -330,7 +330,11 @@ DrawTriangle::DrawTriangle(const VulkanContext& ctx, const TriangleCreateInfo& t
 			.Aspect = VK_IMAGE_ASPECT_COLOR_BIT
 		});
 		this->Texture.ImageView = ImageManager::createFullImageView({
-			this->getDevice(), this->Texture.Image.second, VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT
+			.Device = this->getDevice(),
+			.Image = this->Texture.Image.second,
+			.ViewType = VK_IMAGE_VIEW_TYPE_2D,
+			.Format = VK_FORMAT_R8G8B8A8_SRGB,
+			.Aspect = VK_IMAGE_ASPECT_COLOR_BIT
 		});
 		this->Texture.Sampler = ImageManager::createTextureSampler(this->getDevice(), 14.5f);
 

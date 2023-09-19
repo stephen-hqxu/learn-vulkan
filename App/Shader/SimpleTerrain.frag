@@ -8,10 +8,10 @@ layout(location = 0) in FSIn {
 
 layout(location = 0) out vec4 FragColour;
 
-layout(set = 1, binding = 4) uniform sampler2D Normalmap;
+layout(set = 1, binding = 3) uniform sampler2D Heightfield;
 
 void main() {
-	const vec3 normal = textureLod(Normalmap, fs_in.UV, 0.0f).rgb;
+	const vec3 normal = textureLod(Heightfield, fs_in.UV, 0.0f).rgb;
 
 	//undo gamma correction because presentation will do it later
 	FragColour = vec4(pow(normal, vec3(2.2f)), 1.0f);

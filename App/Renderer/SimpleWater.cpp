@@ -341,8 +341,11 @@ SimpleWater::SimpleWater(const VulkanContext& ctx, const WaterCreateInfo& water_
 				.Aspect = VK_IMAGE_ASPECT_COLOR_BIT
 			});
 			output.ImageView = ImageManager::createFullImageView({
-				device, output.Image.second,
-				VK_IMAGE_VIEW_TYPE_2D, input.Format, VK_IMAGE_ASPECT_COLOR_BIT
+				.Device = device,
+				.Image = output.Image.second,
+				.ViewType = VK_IMAGE_VIEW_TYPE_2D,
+				.Format = input.Format,
+				.Aspect = VK_IMAGE_ASPECT_COLOR_BIT
 			});
 
 			const auto [w, h] = input.Extent;

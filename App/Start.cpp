@@ -176,7 +176,7 @@ namespace {
 			using namespace LearnVulkan;
 			namespace IM = ImageManager;
 			using enum SampleApplicationName;
-			using ResourcePath::ResourceRoot;
+			namespace RP = ResourcePath;
 
 			const VulkanContext& ctx = engine.context();
 
@@ -194,13 +194,13 @@ namespace {
 				draw_skybox = false;
 				break;
 			}
-			constexpr static string_view SkyBoxRightFilename = "/OceanSky-Cubemap/right.png",
-				SkyBoxLeftFilename = "/OceanSky-Cubemap/left.png",
-				SkyBoxTopFilename = "/OceanSky-Cubemap/top.png",
-				SkyBoxBottomFilename = "/OceanSky-Cubemap/bottom.png",
-				SkyBoxFrontFilename = "/OceanSky-Cubemap/front.png",
-				SkyBoxBackFilename = "/OceanSky-Cubemap/back.png";
-			constexpr static auto SkyBoxAllFullPath = File::toAbsolutePath<ResourceRoot,
+			constexpr static string_view SkyBoxRightFilename = "/right.png",
+				SkyBoxLeftFilename = "/left.png",
+				SkyBoxTopFilename = "/top.png",
+				SkyBoxBottomFilename = "/bottom.png",
+				SkyBoxFrontFilename = "/front.png",
+				SkyBoxBackFilename = "/back.png";
+			constexpr static auto SkyBoxAllFullPath = File::toAbsolutePath<RP::SkyCubeMapResourceRoot,
 				SkyBoxRightFilename,
 				SkyBoxLeftFilename,
 				SkyBoxTopFilename,
@@ -228,7 +228,7 @@ namespace {
 			case Triangle:
 			{
 				constexpr static string_view TriangleImageFilename = "/WoodFloor051_1K-PNG/WoodFloor051_1K_Color.png";
-				constexpr static auto TriangleImageFullPath = File::toAbsolutePath<ResourceRoot, TriangleImageFilename>();
+				constexpr static auto TriangleImageFullPath = File::toAbsolutePath<RP::GeneralResourceRoot, TriangleImageFilename>();
 				constexpr static array TriangleImageFullPathArray = { TriangleImageFullPath.data() };
 
 				constexpr static IM::ImageReadInfo triangle_image_info {
@@ -253,22 +253,17 @@ namespace {
 			{
 				const bool draw_water = app_name == Water;
 
-				constexpr static string_view TerrainHeightmapFilename = "/Heightfield-Texture-Sample/heightfield.png",
-					TerrainNormalmapFilename = "/Heightfield-Texture-Sample/heightfield_normal.png",
+				constexpr static string_view TerrainHeightfieldFilename = "/TerrainHeightfield.png",
 					WaterNormalmapFilename = "/Water/waterNormal.png", WaterDistortionFilename = "/Water/waterDUDV.png";
-				constexpr static auto TerrainHeightmapFullPath = File::toAbsolutePath<ResourceRoot, TerrainHeightmapFilename>();
-				constexpr static auto TerrainNormalmapFullPath = File::toAbsolutePath<ResourceRoot, TerrainNormalmapFilename>();
-				constexpr static auto WaterNormalmapFullPath = File::toAbsolutePath<ResourceRoot, WaterNormalmapFilename>();
-				constexpr static auto WaterDistortionFullPath = File::toAbsolutePath<ResourceRoot, WaterDistortionFilename>();
-				constexpr static array TerrainHeightmapFullPathArray = { TerrainHeightmapFullPath.data() },
-					TerrainNormalmapFullPathArray = { TerrainNormalmapFullPath.data() },
+				constexpr static auto TerrainHeightfieldFullPath = File::toAbsolutePath<RP::HeightfieldResourceRoot,
+					TerrainHeightfieldFilename>();
+				constexpr static auto WaterNormalmapFullPath = File::toAbsolutePath<RP::GeneralResourceRoot, WaterNormalmapFilename>();
+				constexpr static auto WaterDistortionFullPath = File::toAbsolutePath<RP::GeneralResourceRoot, WaterDistortionFilename>();
+				constexpr static array TerrainHeightfieldFullPathArray = { TerrainHeightfieldFullPath.data() },
 					WaterNormalmapFullPathArray = { WaterNormalmapFullPath.data() },
 					WaterDistortionFullPathArray = { WaterDistortionFullPath.data() };
 
-				constexpr static IM::ImageReadInfo heightmap_info {
-					.Channel = 1,
-					.ColourSpace = IM::ImageColourSpace::Linear
-				}, normalmap_info {
+				constexpr static IM::ImageReadInfo heightfield_info {
 					.Channel = 4,
 					.ColourSpace = IM::ImageColourSpace::Linear
 				}, water_normalmap_info {
@@ -278,10 +273,8 @@ namespace {
 					.Channel = 2,
 					.ColourSpace = IM::ImageColourSpace::Linear
 				};
-				const IM::ImageReadResult heightmap = IM::readFile<IM::ImageBitWidth::Sixteen>(ctx.Device, ctx.Allocator,
-						TerrainHeightmapFullPathArray, heightmap_info),
-					normalmap = IM::readFile<IM::ImageBitWidth::Sixteen>(ctx.Device, ctx.Allocator,
-						TerrainNormalmapFullPathArray, normalmap_info);
+				const IM::ImageReadResult heightfield = IM::readFile<IM::ImageBitWidth::Sixteen>(ctx.Device, ctx.Allocator,
+					TerrainHeightfieldFullPathArray, heightfield_info);
 				
 				IM::ImageReadResult water_normalmap, water_distortion;
 				const SimpleTerrain::TerrainSkyCreateInfo terrain_sky_info {
@@ -304,8 +297,7 @@ namespace {
 					.CameraDescriptorSetLayout = engine.camera().descriptorSetLayout(),
 					.SkyInfo = &terrain_sky_info,
 					.WaterInfo = draw_water ? &terrain_water_info : nullptr,
-					.Heightmap = &heightmap,
-					.Normalmap = &normalmap,
+					.Heightfield = &heightfield,
 					.DebugMessage = &cout
 				};
 				return make_unique<SimpleTerrain>(ctx, terrain_info);
