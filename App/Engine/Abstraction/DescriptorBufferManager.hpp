@@ -122,7 +122,7 @@ namespace LearnVulkan {
 		 * @brief Initialise a descriptor buffer manager with no managed descriptor.
 		 * Its state is undefined.
 		*/
-		DescriptorBufferManager() noexcept = default;
+		DescriptorBufferManager() noexcept;
 
 		/**
 		 * @brief Initialise a descriptor buffer manager.

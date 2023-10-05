@@ -77,7 +77,8 @@ namespace {
 	constexpr CTX::DeviceRequirement ContextRequirement = {
 		.DeviceType = VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU,
 		.DeviceExtension = RequiredExtension,
-		.QueueFamilyCapability = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT,
+		//transfer capability is implicit when a queue family supports either graphics or compute
+		.QueueFamilyCapability = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT,
 
 		.Format = VK_FORMAT_B8G8R8A8_SRGB,
 		.ColourSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
@@ -213,7 +214,6 @@ namespace {
 		//so if they are the same then just creating one queue is sufficient.
 		const uint32_t queue_info_count = render_queue_idx == present_queue_idx ? 1u : static_cast<uint32_t>(queue_info.size());
 
-		//TODO: we omit most device features for now, add them later if needed
 		VkPhysicalDeviceRayQueryFeaturesKHR ray_query {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR,
 			.rayQuery = VK_TRUE
@@ -274,33 +274,44 @@ namespace {
 			.pNext = &sync2,
 			.indexTypeUint8 = VK_TRUE
 		};
-		constexpr static VkPhysicalDeviceFeatures feature10 {
-			.tessellationShader = VK_TRUE,
-			.sampleRateShading = VK_TRUE,
-			.samplerAnisotropy = VK_TRUE,
-			.shaderFloat64 = VK_TRUE,
-			.shaderInt64 = VK_TRUE,
-			.shaderInt16 = VK_TRUE
+		VkPhysicalDeviceFeatures2 feature10 {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+			.pNext = &uint8_index,
+			.features = {
+				.tessellationShader = VK_TRUE,
+				.sampleRateShading = VK_TRUE,
+				.samplerAnisotropy = VK_TRUE,
+				.shaderFloat64 = VK_TRUE,
+				.shaderInt64 = VK_TRUE,
+				.shaderInt16 = VK_TRUE
+			}
 		};
 		const VkDeviceCreateInfo dev_info {
 			.sType = VkStructureType::VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-			.pNext = &uint8_index,
+			.pNext = &feature10,
 			.queueCreateInfoCount = queue_info_count,
 			.pQueueCreateInfos = queue_info.data(),
 			.enabledExtensionCount = static_cast<uint32_t>(RequiredExtension.size()),
-			.ppEnabledExtensionNames = RequiredExtension.data(),
-			.pEnabledFeatures = &feature10
+			.ppEnabledExtensionNames = RequiredExtension.data()
 		};
 		VKO::Device device = VKO::createDevice(ctx.PhysicalDevice, dev_info);
 
 		/**********************************
 		 * Retrieve queue
 		 **********************************/
-		VkQueue render_queue, present_queue;
-		vkGetDeviceQueue(device, render_queue_idx, 0u, &render_queue);
-		vkGetDeviceQueue(device, present_queue_idx, 0u, &present_queue);
+		const auto get_queue = [dev = *device](const uint32_t qf_idx) -> VkQueue {
+			VkQueue queue;
+			const VkDeviceQueueInfo2 queue_info {
+				.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_INFO_2,
+				.queueFamilyIndex = qf_idx,
+				.queueIndex = 0u
+			};
+			
+			vkGetDeviceQueue2(dev, &queue_info, &queue);
+			return queue;
+		};
 
-		return make_tuple(move(device), render_queue, present_queue);
+		return make_tuple(move(device), get_queue(render_queue_idx), get_queue(present_queue_idx));
 	}
 
 	inline VKO::Allocator createGlobalVma(const VkInstance instance, const VkPhysicalDevice gpu, const VkDevice device) {

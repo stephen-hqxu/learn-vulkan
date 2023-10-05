@@ -103,6 +103,10 @@ void DescriptorBufferManager::DescriptorUpdater::update(const UpdateInfo& update
 	size.push_back(data_size);
 }
 
+DescriptorBufferManager::DescriptorBufferManager() noexcept : UpdaterAlive(false) {
+
+}
+
 DescriptorBufferManager::DescriptorBufferManager(const VulkanContext& ctx,
 	const span<const VkDescriptorSetLayout> ds_layout, const VkBufferUsageFlags usage) :
 	Offset(ds_layout.size()), UpdaterAlive(false) {

@@ -9,21 +9,22 @@
 
 #include <algorithm>
 #include <ranges>
-#include <functional>
 
 #include <optional>
-#include <string_view>
+#include <string>
 
 #include <stdexcept>
+#include <cassert>
 
 using std::make_unique;
 
 using std::optional, std::nullopt;
-using std::span, std::string_view;
+using std::span;
 
 using std::distance;
 
-using std::ranges::find, std::ranges::find_if, std::ranges::includes, std::ranges::views::iota;
+using std::ranges::find, std::ranges::find_if, std::ranges::includes, std::ranges::sort, std::ranges::is_sorted,
+	std::ranges::transform, std::ranges::copy, std::ranges::views::iota;
 
 using std::runtime_error;
 using std::move;
@@ -35,7 +36,20 @@ namespace VKO = VulkanObject;
 
 namespace {
 
+	//Returns `s1 < s2`
+	template<size_t Count = VK_MAX_EXTENSION_NAME_SIZE>
+	inline constexpr bool stringLessThan(const char* const s1, const char* const s2) {
+		return std::char_traits<char>::compare(s1, s2, Count) < 0;
+	}
+
+	//Returns `s1 == s2`
+	template<size_t Count = VK_MAX_EXTENSION_NAME_SIZE>
+	inline constexpr bool stringEqual(const char* const s1, const char* const s2) {
+		return std::char_traits<char>::compare(s1, s2, Count) == 0;
+	}
+
 	//Get all layers supported by the current application. Empty array if no layer is supported.
+	//The output layer properties are sorted based on layer name.
 	StaticArray<VkLayerProperties> getInstanceLayer() {
 		uint32_t layer_count;
 		CHECK_VULKAN_ERROR(vkEnumerateInstanceLayerProperties(&layer_count, nullptr));
@@ -46,14 +60,23 @@ namespace {
 		//allocate memory to hold all layer info
 		StaticArray<VkLayerProperties> layer(layer_count);
 		CHECK_VULKAN_ERROR(vkEnumerateInstanceLayerProperties(&layer_count, layer.data()));
+		sort(layer.toSpan(), ::stringLessThan<>,
+			[](const auto& layer_props) constexpr noexcept { return layer_props.layerName; });
 		return layer;
 	}
 
 	//Check if the supported layers meet the requirement.
+	//*layer* range must be sorted by layer extension name.
 	inline bool isLayerSuitable(const span<const VkLayerProperties> layer, const ExtensionName& required_layer) {
-		return includes(layer, required_layer, std::equal_to { },
-			[](const VkLayerProperties& p) constexpr noexcept { return string_view(p.layerName); },
-			[](const char* const name) constexpr noexcept { return string_view(name); });
+		constexpr static auto layer_name_projector = [](const VkLayerProperties& p) constexpr noexcept -> const char* {
+			return p.layerName;
+		};
+		//`includes` function requires both ranges to be sorted
+		auto req_layer_arr = StaticArray<const char*>(required_layer.size());
+		copy(required_layer, req_layer_arr.data());
+
+		assert(is_sorted(layer, ::stringLessThan<>, layer_name_projector));
+		return includes(layer, req_layer_arr.toSpan(), ::stringEqual<>, layer_name_projector);
 	}
 
 	//Get all available physical devices on the system. Generate exception If no physical device is found.
@@ -111,6 +134,7 @@ namespace {
 	}
 
 	//Get all supported extensions of a given physical device. Return none if no extension is found.
+	//The output extension properties are sorted based on extension name.
 	StaticArray<VkExtensionProperties> getDeviceExtension(const VkPhysicalDevice device) {
 		uint32_t extension_count;
 		CHECK_VULKAN_ERROR(vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count, nullptr));
@@ -120,6 +144,8 @@ namespace {
 
 		StaticArray<VkExtensionProperties> extension(extension_count);
 		CHECK_VULKAN_ERROR(vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count, extension.data()));
+		sort(extension.toSpan(), ::stringLessThan<>,
+			[](const auto& ext_props) constexpr noexcept { return ext_props.extensionName; });
 		return extension;
 	}
 
@@ -150,17 +176,24 @@ namespace {
 	}
 
 	//Check if the given device meets the requirement.
+	//*all_extensions* must be sorted by device extension name.
 	bool isPhysicalDeviceSuitable(const VkPhysicalDeviceProperties dev_props, const span<const VkExtensionProperties> all_extensions,
 		const VkPhysicalDeviceType required_dev_type, const ExtensionName& required_dev_ext) {
+		constexpr static auto extension_name_projector = [](const VkExtensionProperties& props) constexpr noexcept -> const char* {
+			return props.extensionName;
+		};
+
 		//device type check
 		if (dev_props.deviceType != required_dev_type) {
 			return false;
 		}
 
+		auto req_dev_ext_arr = StaticArray<const char*>(required_dev_ext.size());
+		copy(required_dev_ext, req_dev_ext_arr.data());
+		
 		//device extension check
-		return includes(all_extensions, required_dev_ext, std::equal_to { },
-			[](const VkExtensionProperties& props) constexpr noexcept { return string_view(props.extensionName); },
-			[](const char* const name) constexpr noexcept { return string_view(name); });
+		assert(is_sorted(all_extensions, ::stringLessThan<>, extension_name_projector));
+		return includes(all_extensions, req_dev_ext_arr.toSpan(), ::stringEqual<>, extension_name_projector);
 	}
 
 	//Check if the surface format that meets our requirement.
